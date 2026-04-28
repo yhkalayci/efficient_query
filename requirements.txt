@@ -1,0 +1,6 @@
+vllm==0.19.1
+transformers==5.5.4
+datasets==4.8.4
+tqdm
+scikit-learn
+matplotlib

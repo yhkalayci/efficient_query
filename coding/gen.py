@@ -1,348 +1,343 @@
+#!/usr/bin/env python3
 """
-Sample N completions per HumanEval+ problem with a base coder model, then
-verify each sample inline with:
-  (1) Python compile() syntax check
-  (2) execution against EvalPlus extended tests with per-test timeout
+Generate N samples per LiveCodeBench problem with a code model via vLLM.
 
-Output: generations.jsonl, one line per problem, structured to match the math
-pipeline so downstream scripts (filter_solvable.py, meta_generation_eval.py)
-work with minor tweaks.
+Loads problems from bzantium/livecodebench (HuggingFace, release_v2, split=test).
+Writes generations.jsonl — one line per problem — carrying test cases through
+so verify_lcb.py can run without re-downloading.
 
-Each line:
+Output schema per line:
   {
-    "id": "HumanEval/0",
-    "problem": "<full prompt: docstring + signature>",
-    "answer": null,                 # not used for code
+    "id": "<task_id>",
+    "problem": "<full prompt>",
+    "answer": null,
+    "difficulty": "easy"|"medium"|"hard",
+    "platform": "leetcode"|"atcoder"|"codeforces",
+    "test_type": "stdin"|"functional",
+    "tests": [...],
+    "fn_name": str | null,
+    "starter_code": str,
+    "n_samples": N,
+    "n_correct": null,
+    "empirical_pass_rate": null,
+    "avg_tokens": float,
     "samples": [
-      {
-        "idx": 0,
-        "text": "<raw model output>",
-        "code": "<extracted code>",
-        "syntactic": true,
-        "runtime_error": null,
-        "n_tests_passed": 17,
-        "n_tests_total": 17,
-        "correct": true,
-        "exec_time_s": 0.034
-      },
+      {"idx": 0, "text": "<raw>", "code": "<extracted>", "syntactic": bool,
+       "n_tests_passed": null, "n_tests_total": null,
+       "correct": null, "runtime_error": null, "exec_time_s": null,
+       "num_tokens": int, "finish_reason": str},
       ...
     ]
   }
+
+Usage:
+    python coding/gen.py --model Qwen/Qwen2.5-Coder-3B --n-samples 512 --output-dir ./results/coding
 """
 
+from __future__ import annotations
+
 import argparse
+import ast
+import base64
 import json
-import multiprocessing as mp
-import os
+import pickle
 import re
-import signal
-import subprocess
 import sys
-import tempfile
 import time
-import traceback
+import zlib
 from pathlib import Path
 
-import numpy as np
+
+# ----------------------------- LiveCodeBench loading -----------------------------
+
+def _maybe_decode_private_tests(s):
+    """Decode private test cases — may be JSON, or base64+zlib+pickle."""
+    if not isinstance(s, str) or not s:
+        return []
+    try:
+        return json.loads(s)
+    except Exception:
+        pass
+    try:
+        return json.loads(pickle.loads(zlib.decompress(base64.b64decode(s.encode("utf-8")))))
+    except Exception:
+        return []
 
 
-# ----------------------------- Model loading -----------------------------
-def load_vllm_engine(model_name, dtype="float16", tp=1, max_model_len=2048):
-    from vllm import LLM
-    print(f"[load] loading {model_name} dtype={dtype} tp={tp}", flush=True)
-    llm = LLM(
-        model=model_name,
-        dtype=dtype,
-        tensor_parallel_size=tp,
-        max_model_len=max_model_len,
-        gpu_memory_utilization=0.9,
-        trust_remote_code=True,
-        seed=42,
+def load_livecodebench(version_tag="release_v2", difficulty=None,
+                       platforms=None, max_problems=-1):
+    """Load LCB problems from bzantium/livecodebench HF mirror."""
+    from datasets import load_dataset
+    print(f"[data] loading bzantium/livecodebench {version_tag}", flush=True)
+    ds = load_dataset("bzantium/livecodebench", version_tag, split="test")
+
+    ONE_SHOT_FUNC = (
+        "### Example\n"
+        "Problem: Return the sum of two integers a and b.\n"
+        "Starter code:\n"
+        "```python\n"
+        "class Solution:\n"
+        "    def add(self, a: int, b: int) -> int:\n"
+        "```\n"
+        "Solution:\n"
+        "```python\n"
+        "class Solution:\n"
+        "    def add(self, a: int, b: int) -> int:\n"
+        "        return a + b\n"
+        "```\n\n"
     )
-    return llm
 
+    ONE_SHOT_STDIN = (
+        "### Example\n"
+        "Problem: Read two integers and print their sum.\n"
+        "Solution:\n"
+        "```python\n"
+        "a, b = map(int, input().split())\n"
+        "print(a + b)\n"
+        "```\n\n"
+    )
 
-# ----------------------------- HumanEval+ loading -----------------------------
-def load_humaneval_plus():
-    """Load HumanEval+ from the evalplus package."""
-    from evalplus.data import get_human_eval_plus
-    problems = get_human_eval_plus()
     out = []
-    for task_id, p in problems.items():
+    n_skipped = 0
+    for row in ds:
+        diff = (row.get("difficulty") or "unknown").lower()
+        plat = (row.get("platform") or "unknown").lower()
+
+        if difficulty is not None and diff not in difficulty:
+            continue
+        if platforms is not None and plat not in platforms:
+            continue
+
+        public_tc = json.loads(row.get("public_test_cases") or "[]")
+        private_tc = _maybe_decode_private_tests(row.get("private_test_cases") or "")
+        tests = list(public_tc) + list(private_tc)
+        if not tests:
+            n_skipped += 1
+            continue
+
+        fn_name = None
+        try:
+            meta = json.loads(row.get("metadata") or "{}")
+            fn_name = meta.get("func_name") or None
+        except Exception:
+            pass
+
+        starter = row.get("starter_code") or ""
+        question = row["question_content"]
+
+        test_type = (
+            "functional"
+            if any(t.get("testtype") == "functional" for t in tests)
+            else "stdin"
+        )
+
+        if test_type == "functional" or starter.strip():
+            prompt = (
+                ONE_SHOT_FUNC
+                + "### Problem\n"
+                + question.strip()
+                + ("\n\nStarter code:\n```python\n" + starter.strip() + "\n```"
+                   if starter.strip() else "")
+                + "\n\nSolution:\n```python\n"
+            )
+        else:
+            prompt = (
+                ONE_SHOT_STDIN
+                + "### Problem\n"
+                + question.strip()
+                + "\n\nSolution:\n```python\n"
+            )
+
         out.append({
-            "task_id": task_id,
-            "prompt": p["prompt"],
-            "entry_point": p["entry_point"],
-            "canonical_solution": p.get("canonical_solution", ""),
-            "test": p["test"],          # original tests (string of test code)
-            "plus_input": p.get("plus_input", []),  # extra inputs
+            "id": row.get("question_id") or row.get("task_id") or f"lcb_{len(out):04d}",
+            "problem": prompt,
+            "answer": None,
+            "difficulty": diff,
+            "platform": plat,
+            "test_type": test_type,
+            "tests": tests,
+            "fn_name": fn_name,
+            "starter_code": starter,
         })
-    print(f"[data] loaded {len(out)} HumanEval+ problems", flush=True)
+
+        if max_problems > 0 and len(out) >= max_problems:
+            break
+
+    print(f"[data] loaded {len(out)} problems, skipped {n_skipped} (no tests)", flush=True)
     return out
 
 
 # ----------------------------- Code extraction -----------------------------
-# Base coder models are unpredictable. Prefer the first ```python block; fall back
-# to whole text after stripping. Extraction is intentionally permissive.
-CODE_BLOCK_RE = re.compile(r"```(?:python)?\s*\n(.*?)```", re.DOTALL)
 
-
-def extract_code(prompt: str, completion: str) -> str:
-    """
-    Build the full module text to execute: prompt + completion (or extracted
-    code block). HumanEval+ prompt typically ends with the function signature
-    and docstring; the completion is supposed to be the function body.
-    """
-    text = completion
-    m = CODE_BLOCK_RE.search(text)
+def extract_python_code(text: str) -> str:
+    """Extract the first ```python ... ``` block, or the whole text if none."""
+    m = re.search(r"```python\s*(.*?)```", text, re.DOTALL)
     if m:
-        body = m.group(1)
-        # If the extracted block is a full implementation (re-defines the function),
-        # use it on its own; otherwise prepend the prompt.
-        if body.lstrip().startswith("def "):
-            return body
-        return prompt + body
-
-    # No code block: treat the completion as raw body
-    return prompt + completion
+        return m.group(1).strip()
+    m = re.search(r"```\s*(.*?)```", text, re.DOTALL)
+    if m:
+        return m.group(1).strip()
+    return text.strip()
 
 
-def syntax_ok(code: str) -> bool:
+def is_syntactically_valid(code: str) -> bool:
     try:
-        compile(code, "<sample>", "exec")
+        ast.parse(code)
         return True
-    except Exception:
+    except SyntaxError:
         return False
 
 
-# ----------------------------- Inline execution -----------------------------
-# Run code in a subprocess with a hard timeout. We do NOT sandbox; the user has
-# accepted that. Each sample gets its own subprocess so a hang doesn't kill the
-# main worker. Returns (n_passed, n_total, runtime_error_string_or_None,
-# exec_time_s).
-EXECUTION_HARNESS = r"""
-import sys, json, signal, traceback, time
-{code}
+# ----------------------------- vLLM engine -----------------------------
 
-# Test driver appended below
-{test_driver}
-"""
-
-
-def build_humaneval_test_driver(problem):
-    """
-    HumanEval+'s test field is a string defining a `check(candidate)` function.
-    We run it on the user's `entry_point`. We monkey-patch `assert` indirectly
-    by counting checks: HumanEval style uses raw asserts, so we count assert
-    statements that pass vs fail by running each assertion independently.
-
-    Simpler approach: just call `check(entry_point_function)` and treat it as
-    binary pass/fail. This loses the per-test granularity but matches how
-    EvalPlus reports correctness.
-    """
-    test_code = problem["test"]
-    ep = problem["entry_point"]
-    return f"""
-{test_code}
-
-if __name__ == "__main__":
-    try:
-        check({ep})
-        print("__RESULT__", json.dumps({{"passed": True, "n_passed": 1, "n_total": 1, "error": None}}))
-    except AssertionError as e:
-        print("__RESULT__", json.dumps({{"passed": False, "n_passed": 0, "n_total": 1, "error": "AssertionError: " + str(e)[:200]}}))
-    except Exception as e:
-        print("__RESULT__", json.dumps({{"passed": False, "n_passed": 0, "n_total": 1, "error": type(e).__name__ + ": " + str(e)[:200]}}))
-"""
+def load_vllm_engine(model_name, dtype="float16", tp=1,
+                     max_model_len=4096, gpu_memory_utilization=0.9):
+    from vllm import LLM
+    print(f"[load] loading {model_name} dtype={dtype} tp={tp}", flush=True)
+    return LLM(
+        model=model_name,
+        dtype=dtype,
+        tensor_parallel_size=tp,
+        max_model_len=max_model_len,
+        gpu_memory_utilization=gpu_memory_utilization,
+        trust_remote_code=True,
+        seed=42,
+    )
 
 
-def run_one_sample(args):
-    """
-    Worker function. args = (problem, code, timeout_s).
-    Returns (n_passed, n_total, error_str_or_None, exec_time_s).
-    """
-    problem, code, timeout_s = args
-    test_driver = build_humaneval_test_driver(problem)
-    full_script = EXECUTION_HARNESS.format(code=code, test_driver=test_driver)
-
-    t0 = time.time()
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".py", delete=False
-        ) as f:
-            f.write(full_script)
-            tmp_path = f.name
-
-        proc = subprocess.run(
-            [sys.executable, tmp_path],
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-        )
-        elapsed = time.time() - t0
-        out = proc.stdout
-        # Parse last __RESULT__ line
-        result_line = None
-        for line in out.splitlines():
-            if line.startswith("__RESULT__"):
-                result_line = line
-        if result_line is None:
-            err = (proc.stderr or "no result emitted")[-300:]
-            return (0, 1, f"NO_RESULT: {err}", elapsed)
-        info = json.loads(result_line.split(" ", 1)[1])
-        return (info["n_passed"], info["n_total"], info["error"], elapsed)
-    except subprocess.TimeoutExpired:
-        return (0, 1, "Timeout", time.time() - t0)
-    except Exception as e:
-        return (0, 1, f"DriverError: {type(e).__name__}: {e}", time.time() - t0)
-    finally:
-        try:
-            os.unlink(tmp_path)
-        except Exception:
-            pass
-
-
-# ----------------------------- Generation -----------------------------
-def make_prompts(problems, prompt_format="raw"):
-    """For base models, just use the raw HumanEval prompt (function signature
-    plus docstring). The model continues with the body.
-    """
-    if prompt_format == "raw":
-        return [p["prompt"] for p in problems]
-    raise ValueError(prompt_format)
-
+# ----------------------------- Main -----------------------------
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="Qwen/Qwen2.5-Coder-3B")
-    ap.add_argument("--n-samples", type=int, default=256)
-    ap.add_argument("--temperature", type=float, default=0.7)
-    ap.add_argument("--top-p", type=float, default=0.95)
-    ap.add_argument("--max-tokens", type=int, default=1024)
-    ap.add_argument("--max-model-len", type=int, default=2048)
-    ap.add_argument("--tp", type=int, default=1, help="tensor parallel size")
-    ap.add_argument("--dtype", default="float16")
-    ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--out-dir", required=True)
-    ap.add_argument("--n-problems", type=int, default=-1,
-                    help="If >0, only run on the first N problems (smoke test)")
-    ap.add_argument("--exec-timeout", type=float, default=10.0,
-                    help="Per-sample execution timeout (seconds)")
-    ap.add_argument("--exec-workers", type=int, default=8,
-                    help="Parallel workers for execution-truth evaluation")
-    ap.add_argument("--skip-exec", action="store_true",
-                    help="Skip inline execution (only generate). Useful to debug.")
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser(
+        description="Generate code samples for LiveCodeBench problems."
+    )
+    parser.add_argument("--model", default="Qwen/Qwen2.5-Coder-3B")
+    parser.add_argument("--output-dir", default="./results/coding")
+    parser.add_argument("--n-samples", type=int, default=512)
+    parser.add_argument("--temperature", type=float, default=0.7)
+    parser.add_argument("--top-p", type=float, default=0.95)
+    parser.add_argument("--max-tokens", type=int, default=2048)
+    parser.add_argument("--max-model-len", type=int, default=4096)
+    parser.add_argument("--tensor-parallel-size", type=int, default=0,
+                        help="0 = use all visible GPUs")
+    parser.add_argument("--gpu-memory-utilization", type=float, default=0.9)
+    parser.add_argument("--dtype", default="float16",
+                        choices=["float16", "bfloat16", "auto"])
+    parser.add_argument("--difficulty", nargs="+", default=None,
+                        help="Filter by difficulty: easy medium hard")
+    parser.add_argument("--platforms", nargs="+", default=None,
+                        help="Filter by platform: leetcode atcoder codeforces")
+    parser.add_argument("--max-problems", type=int, default=-1,
+                        help="Limit number of problems (smoke test)")
+    parser.add_argument("--version-tag", default="release_v2",
+                        help="LCB HF dataset version tag")
+    args = parser.parse_args()
 
-    out_dir = Path(args.out_dir)
+    import torch
+    out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / "generations.jsonl"
 
-    problems = load_humaneval_plus()
-    if args.n_problems > 0:
-        problems = problems[: args.n_problems]
-        print(f"[smoketest] limiting to {len(problems)} problems", flush=True)
+    num_gpus = torch.cuda.device_count()
+    if num_gpus == 0:
+        sys.exit("[fatal] no CUDA GPUs detected.")
+    tp_size = args.tensor_parallel_size if args.tensor_parallel_size > 0 else num_gpus
+    print(f"[config] {num_gpus} GPU(s), tensor_parallel_size={tp_size}", flush=True)
 
-    # Save metadata
-    meta = vars(args).copy()
-    meta["n_problems_actual"] = len(problems)
-    (out_dir / "meta.json").write_text(json.dumps(meta, indent=2))
+    problems = load_livecodebench(
+        version_tag=args.version_tag,
+        difficulty=args.difficulty,
+        platforms=args.platforms,
+        max_problems=args.max_problems,
+    )
+    if not problems:
+        sys.exit("[fatal] no problems loaded.")
 
-    # ---- Generation phase ----
     from vllm import SamplingParams
     llm = load_vllm_engine(
-        args.model, dtype=args.dtype, tp=args.tp,
+        args.model,
+        dtype=args.dtype,
+        tp=tp_size,
         max_model_len=args.max_model_len,
+        gpu_memory_utilization=args.gpu_memory_utilization,
     )
-    sampling = SamplingParams(
+
+    sampling_params = SamplingParams(
         n=args.n_samples,
         temperature=args.temperature,
         top_p=args.top_p,
         max_tokens=args.max_tokens,
-        seed=args.seed,
-        # Stop sequences: try to stop the model after one function so it doesn't
-        # ramble into next function (common with base models on HumanEval).
-        stop=["\nclass ", "\ndef ", "\nif __name__", "\n#", "\n```"],
+        stop=["```\n\n", "\n### "],
     )
 
-    prompts = make_prompts(problems, "raw")
-    print(f"[gen] sampling {args.n_samples} per problem on {len(prompts)} problems", flush=True)
-    t0 = time.time()
-    outputs = llm.generate(prompts, sampling)
-    print(f"[gen] done in {time.time() - t0:.1f}s", flush=True)
+    out_path = out_dir / "generations.jsonl"
+    t_start = time.time()
+    tok_total = 0
 
-    # ---- Verification phase ----
-    if not args.skip_exec:
-        print(f"[exec] verifying with {args.exec_workers} workers, timeout={args.exec_timeout}s",
-              flush=True)
-    pool = None
-    if not args.skip_exec and args.exec_workers > 1:
-        pool = mp.Pool(args.exec_workers)
+    with open(out_path, "w", buffering=1) as fout:
+        for pi, prob in enumerate(problems):
+            pt0 = time.time()
+            outputs = llm.generate([prob["problem"]], sampling_params, use_tqdm=False)[0]
 
-    written = 0
-    with open(out_path, "w") as f:
-        for prob_idx, (problem, output) in enumerate(zip(problems, outputs)):
-            samples_records = []
-            # Build (prob, code, timeout) work items
-            work = []
-            extracted_codes = []
-            for s_idx, gen in enumerate(output.outputs):
-                text = gen.text
-                code = extract_code(problem["prompt"], text)
-                extracted_codes.append(code)
-                work.append((problem, code, args.exec_timeout))
-
-            # Run executions
-            if args.skip_exec:
-                results = [(0, 1, "skipped", 0.0)] * len(work)
-            elif pool is not None:
-                t1 = time.time()
-                results = pool.map(run_one_sample, work)
-                exec_time = time.time() - t1
-            else:
-                t1 = time.time()
-                results = [run_one_sample(w) for w in work]
-                exec_time = time.time() - t1
-
-            for s_idx, (gen, code, (n_pass, n_total, err, et)) in enumerate(
-                zip(output.outputs, extracted_codes, results)
-            ):
-                samples_records.append({
-                    "idx": s_idx,
-                    "text": gen.text,
+            samples = []
+            tok_counts = []
+            for i, comp in enumerate(outputs.outputs):
+                text = comp.text
+                code = extract_python_code(text)
+                syntactic = is_syntactically_valid(code)
+                tok_counts.append(len(comp.token_ids))
+                samples.append({
+                    "idx": i,
+                    "text": text,
                     "code": code,
-                    "syntactic": syntax_ok(code),
-                    "runtime_error": err,
-                    "n_tests_passed": int(n_pass),
-                    "n_tests_total": int(n_total),
-                    "correct": bool(n_pass == n_total and n_total > 0 and err is None),
-                    "exec_time_s": float(et),
+                    "syntactic": syntactic,
+                    "n_tests_passed": None,
+                    "n_tests_total": None,
+                    "correct": None,
+                    "runtime_error": None,
+                    "exec_time_s": None,
+                    "num_tokens": len(comp.token_ids),
+                    "finish_reason": comp.finish_reason,
                 })
 
-            n_correct = sum(s["correct"] for s in samples_records)
-            n_synt = sum(s["syntactic"] for s in samples_records)
+            avg_tok = sum(tok_counts) / len(tok_counts)
+            tok_total += sum(tok_counts)
+
+            record = {
+                "id": prob["id"],
+                "problem": prob["problem"],
+                "answer": None,
+                "difficulty": prob["difficulty"],
+                "platform": prob["platform"],
+                "test_type": prob["test_type"],
+                "tests": prob["tests"],
+                "fn_name": prob["fn_name"],
+                "starter_code": prob["starter_code"],
+                "n_samples": len(samples),
+                "n_correct": None,
+                "empirical_pass_rate": None,
+                "avg_tokens": avg_tok,
+                "samples": samples,
+            }
+            fout.write(json.dumps(record) + "\n")
+
+            elapsed = time.time() - t_start
+            eta_sec = elapsed / (pi + 1) * (len(problems) - pi - 1)
+            n_syn = sum(s["syntactic"] for s in samples)
             print(
-                f"[gen] {prob_idx + 1}/{len(problems)} {problem['task_id']} "
-                f"correct={n_correct}/{len(samples_records)} "
-                f"syntactic={n_synt}/{len(samples_records)} "
-                f"exec={exec_time:.1f}s" if not args.skip_exec else "",
+                f"  [{pi + 1:>4d}/{len(problems)}] {prob['id']:<35s}"
+                f"  syntactic={n_syn}/{len(samples)}"
+                f"  avg_tok={avg_tok:>5.0f}"
+                f"  ({time.time() - pt0:.0f}s, ETA {eta_sec / 60:.0f}min)",
                 flush=True,
             )
 
-            f.write(json.dumps({
-                "id": problem["task_id"],
-                "problem": problem["prompt"],
-                "answer": None,
-                "entry_point": problem["entry_point"],
-                "samples": samples_records,
-            }) + "\n")
-            written += 1
-
-    if pool is not None:
-        pool.close()
-        pool.join()
-
-    print(f"[done] wrote {written} problems to {out_path}", flush=True)
+    elapsed = time.time() - t_start
+    print(
+        f"[gen] done in {elapsed / 60:.1f} min  "
+        f"({tok_total:,} tokens, {tok_total / max(elapsed, 1):.0f} tok/s)",
+        flush=True,
+    )
+    print(f"[done] wrote {len(problems)} problems to {out_path}")
 
 
 if __name__ == "__main__":

@@ -239,6 +239,8 @@ def main():
                     help="rerun even if a verified output exists; default skips problems")
     ap.add_argument("--limit", type=int, default=-1,
                     help="verify only the first N problems (smoke test)")
+    ap.add_argument("--skip-indices", type=int, nargs="+", default=[],
+                    help="0-based problem indices to skip (write empty record instead)")
     args = ap.parse_args()
 
     in_path = Path(args.input)
@@ -282,7 +284,25 @@ def main():
     total_samples_done = 0
 
     try:
+        skip_set = set(args.skip_indices)
+
         for prob_idx, problem in enumerate(todo):
+            # Write a stub record for crash-inducing problems and move on
+            if prob_idx in skip_set:
+                for samp in problem["samples"]:
+                    samp["n_tests_passed"] = None
+                    samp["n_tests_total"] = None
+                    samp["correct"] = None
+                    samp["runtime_error"] = "skipped"
+                    samp["exec_time_s"] = None
+                problem["n_correct"] = None
+                fout.write(json.dumps(problem) + "\n")
+                fout.flush()
+                print(f"[verify] {prob_idx + 1}/{len(todo)} {problem['id']} SKIPPED (index {prob_idx})", flush=True)
+                continue
+
+            print(f"[verify] starting {prob_idx + 1}/{len(todo)} {problem['id']}", flush=True)
+
             # Build job list for this problem
             jobs = []
             for samp in problem["samples"]:

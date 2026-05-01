@@ -1,6 +1,8 @@
 vllm==0.19.1
 transformers==5.5.4
 datasets==4.8.4
+torch
+numpy
 tqdm
 scikit-learn
 matplotlib

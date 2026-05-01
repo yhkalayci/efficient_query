@@ -191,9 +191,11 @@ def nonadaptive_success_matrix(rwd: np.ndarray, cor: np.ndarray, perm: np.ndarra
     return succ
 
 
-def oracle_min_success_cost(per_trial_mk: np.ndarray, c_rew: float, c_ver: float) -> np.ndarray:
+def oracle_min_success_cost(per_trial_mk: np.ndarray, c_rew: float, c_ver: float):
     """
     For each trial, minimum cost(M,K) among successful non-adaptive strategies.
+    Returns (cost, M, K) arrays of shape (n_problems, n_perm).
+    M and K are 0 for unsolvable trials.
     """
     n_problems, n_perm, n1, _ = per_trial_mk.shape
     n = n1 - 1
@@ -203,14 +205,18 @@ def oracle_min_success_cost(per_trial_mk: np.ndarray, c_rew: float, c_ver: float
             mk_costs.append((M * c_rew + K * c_ver, M, K))
     mk_costs.sort()
 
-    out = np.full((n_problems, n_perm), np.inf, dtype=np.float64)
+    out_cost = np.full((n_problems, n_perm), np.inf, dtype=np.float64)
+    out_M = np.zeros((n_problems, n_perm), dtype=np.int32)
+    out_K = np.zeros((n_problems, n_perm), dtype=np.int32)
     for pi in range(n_problems):
         for p in range(n_perm):
             for cost, M, K in mk_costs:
                 if per_trial_mk[pi, p, M, K]:
-                    out[pi, p] = cost
+                    out_cost[pi, p] = cost
+                    out_M[pi, p] = M
+                    out_K[pi, p] = K
                     break
-    return out
+    return out_cost, out_M, out_K
 
 
 def best_fixed_curve_under_budget(
@@ -393,6 +399,8 @@ def make_plots(
     adaptive_results,
     per_trial_mk,
     oracle_min_cost,
+    oracle_M_arr,
+    oracle_K_arr,
     best_fixed_budget_curve,
     best_fixed_budget_mk,
     best_fixed_budget_actual_cost,
@@ -671,6 +679,21 @@ def make_plots(
     both_succeed = int(((ad_success == 1) & (fixed_at_ad_success == 1)).sum())
     both_fail = int(((ad_success == 0) & (fixed_at_ad_success == 0)).sum())
 
+    # Average M and K for each strategy
+    ad_avg_M = float(np.mean([r["adaptive_n_drawn"] for r in adaptive_results]))
+    ad_avg_K = float(np.mean([r["adaptive_n_verified"] for r in adaptive_results]))
+
+    solvable_mask = np.isfinite(oracle_costs_flat)
+    oracle_M_flat = oracle_M_arr.flatten()
+    oracle_K_flat = oracle_K_arr.flatten()
+    oracle_avg_M = float(oracle_M_flat[solvable_mask].mean()) if solvable_mask.any() else 0.0
+    oracle_avg_K = float(oracle_K_flat[solvable_mask].mean()) if solvable_mask.any() else 0.0
+
+    # best fixed under adaptive cost: fixed (M,K) applied to all trials
+    bf_ad_M, bf_ad_K = int(best_mk_at_ad[0]), int(best_mk_at_ad[1])
+    # best fixed matching full adaptive success: fixed (M,K) applied to all trials
+    match_M, match_K = int(match_mk[0]), int(match_mk[1])
+
     summary_lines = [
         "=== Summary ===",
         f"c_rew = {c_rew}",
@@ -678,9 +701,21 @@ def make_plots(
         f"n_problems (>=1 correct sample) = {len(problem_ids)}",
         f"n_trials = {n_trials}",
         "",
+        "Average M (samples drawn) and K (samples verified) per strategy:",
+        f"  Adaptive       avg M = {ad_avg_M:.2f}   avg K = {ad_avg_K:.2f}",
+        f"  Sample-aware   avg M = {oracle_avg_M:.2f}   avg K = {oracle_avg_K:.2f}   (oracle: per-trial hindsight-best fixed)",
+        f"  Best fixed under adaptive cost   M = {bf_ad_M}   K = {bf_ad_K}   (same for all trials)",
+        (f"  Best fixed full success          M = {match_M}   K = {match_K}   (same for all trials)"
+         if np.isfinite(match_cost) else
+         f"  Best fixed full success          M = n/a   K = n/a   (no fixed strategy reaches adaptive acc={ad_success_rate:.3f})"),
+        "",
         "Requested headline quantities:",
         f"  Oracle average cost                     = {oracle_avg_cost:.6f}",
+        f"  Oracle avg M                            = {oracle_avg_M:.2f}",
+        f"  Oracle avg K                            = {oracle_avg_K:.2f}",
         f"  Adaptive average cost                   = {ad_avg_cost:.6f}",
+        f"  Adaptive avg M (drawn)                  = {ad_avg_M:.2f}",
+        f"  Adaptive avg K (verified)               = {ad_avg_K:.2f}",
         f"  Adaptive success rate                   = {ad_success_rate:.6f}",
         f"  Cheapest fixed cost matching adaptive   = {match_cost:.6f}" if np.isfinite(match_cost) else "  Cheapest fixed cost matching adaptive   = inf",
         f"  Matching fixed strategy (M,K)           = {match_mk}",
@@ -691,8 +726,14 @@ def make_plots(
         f"  Curve file                              = plot_requested_cost_vs_accuracy.png",
         f"  At budget = Adaptive average cost:",
         f"    chosen (M,K)                          = {best_mk_at_ad}",
+        f"    M                                     = {bf_ad_M}",
+        f"    K                                     = {bf_ad_K}",
         f"    actual chosen cost                    = {best_cost_at_ad:.6f}",
         f"    average success                       = {best_succ_at_ad:.6f}",
+        f"  Cheapest fixed to match adaptive success:",
+        f"    (M,K)                                 = {match_mk}",
+        f"    M                                     = {match_M}",
+        f"    K                                     = {match_K}",
         "",
         "Paired comparison on the SAME trials using that one fixed strategy:",
         f"  adaptive succeeds, fixed fails         = {adaptive_beats_fixed}",
@@ -756,7 +797,7 @@ def main():
     )
 
     print("[eval] computing oracle minimum cost per trial...", flush=True)
-    oracle_min_cost = oracle_min_success_cost(per_trial_mk, args.c_rew, args.c_ver)
+    oracle_min_cost, oracle_M_arr, oracle_K_arr = oracle_min_success_cost(per_trial_mk, args.c_rew, args.c_ver)
 
     print("[eval] computing best fixed curve under budget...", flush=True)
     best_fixed_budget_curve, best_fixed_budget_mk, best_fixed_budget_actual_cost = best_fixed_curve_under_budget(
@@ -790,6 +831,8 @@ def main():
         adaptive_results=adaptive_results,
         per_trial_mk=per_trial_mk,
         oracle_min_cost=oracle_min_cost,
+        oracle_M_arr=oracle_M_arr,
+        oracle_K_arr=oracle_K_arr,
         best_fixed_budget_curve=best_fixed_budget_curve,
         best_fixed_budget_mk=best_fixed_budget_mk,
         best_fixed_budget_actual_cost=best_fixed_budget_actual_cost,

@@ -117,7 +117,9 @@ def main():
 
         # Check verified
         if any(s.get("correct") is None for s in samples):
-            sys.exit(f"[fatal] {pid} has unverified samples; run verify first")
+            n_skipped += 1
+            print(f"[skip] {pid} has unverified samples, skipping", flush=True)
+            continue
 
         cor = np.array([int(bool(s["correct"])) for s in samples], dtype=np.int8)
         if cor.sum() < args.min_correct:

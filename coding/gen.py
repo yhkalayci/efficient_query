@@ -223,7 +223,7 @@ def main():
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.9)
     parser.add_argument("--dtype", default="float16",
                         choices=["float16", "bfloat16", "auto"])
-    parser.add_argument("--difficulty", nargs="+", default=None,
+    parser.add_argument("--difficulty", nargs="+", default=["medium", "hard"],
                         help="Filter by difficulty: easy medium hard")
     parser.add_argument("--platforms", nargs="+", default=None,
                         help="Filter by platform: leetcode atcoder codeforces")
@@ -266,7 +266,7 @@ def main():
         temperature=args.temperature,
         top_p=args.top_p,
         max_tokens=args.max_tokens,
-        stop=["```\n\n", "\n### "],
+        stop=["```", "\n### "],
     )
 
     out_path = out_dir / "generations.jsonl"

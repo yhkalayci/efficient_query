@@ -13,7 +13,7 @@ set -euo pipefail
 CODING_OUTDIR="${CODING_OUTDIR:-./results/coding}"
 N_SAMPLES="${N_SAMPLES:-512}"
 CODING_MODEL="${CODING_MODEL:-Qwen/Qwen2.5-Coder-3B}"
-VERIFY_WORKERS="${VERIFY_WORKERS:-8}"
+VERIFY_WORKERS="${VERIFY_WORKERS:-64}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

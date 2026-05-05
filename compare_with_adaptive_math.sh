@@ -39,7 +39,10 @@ for MODEL in $MATH_MODELS; do
                 --c-rew 1 \
                 --c-ver "$C_VER" \
                 --G-max "$G_MAX" \
-                --out-dir "$CDIR"
+                --out-dir "$CDIR" \
+                --task Math \
+                --model-name "$MODEL" \
+                --reward-model-name "Qwen2.5-Math-PRM-7B"
         fi
     done
 done

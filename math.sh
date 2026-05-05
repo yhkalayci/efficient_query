@@ -62,7 +62,10 @@ for MODEL in $MATH_MODELS; do
                 --reward-key  r_last \
                 --c-rew 1 \
                 --c-ver "$C_VER" \
-                --out-dir "$CDIR"
+                --out-dir "$CDIR" \
+                --task Math \
+                --model-name "$MODEL" \
+                --reward-model-name "Qwen2.5-Math-PRM-7B"
         fi
     done
 

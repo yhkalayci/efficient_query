@@ -29,7 +29,10 @@ for C_VER in 1 10 20 30; do
             --c-rew 1 \
             --c-ver "$C_VER" \
             --G-max "$G_MAX" \
-            --out-dir "$CDIR"
+            --out-dir "$CDIR" \
+            --task Coding \
+            --model-name "$CODING_MODEL" \
+            --reward-model-name "CodeScaler-8B"
     fi
 done
 

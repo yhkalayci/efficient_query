@@ -71,7 +71,10 @@ for C_VER in 1 10 20 30; do
             --reward-key  r_score \
             --c-rew 1 \
             --c-ver "$C_VER" \
-            --out-dir "$CDIR"
+            --out-dir "$CDIR" \
+            --task Coding \
+            --model-name "$CODING_MODEL" \
+            --reward-model-name "CodeScaler-8B"
     fi
 done
 

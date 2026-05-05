@@ -29,6 +29,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 
 
 def load_jsonl(p):
@@ -197,6 +198,23 @@ def main():
             writer.writerow(r)
     print(f"[save] {csv_path}", flush=True)
 
+    # ---- Style setup ----
+    sns.set_theme(style="whitegrid", context="paper", palette="deep")
+    plt.rcParams.update({
+        "mathtext.fontset": "cm",
+        "font.family": "serif",
+        "font.serif": ["cmr10"],
+        "axes.formatter.use_mathtext": True,
+        "axes.unicode_minus": False,
+        "axes.labelsize": 16,
+        "axes.titlesize": 16,
+        "xtick.labelsize": 14,
+        "ytick.labelsize": 14,
+        "legend.fontsize": 14,
+        "pdf.fonttype": 42,
+    })
+    COLORS = sns.color_palette("deep").as_hex()
+
     # ---- 2D scatter: M_mean vs K_mean (cleaner, no labels, no borders) ----
     M_means = np.array([r["M_mean"] for r in rows])
     K_means = np.array([r["K_mean"] for r in rows])
@@ -209,9 +227,9 @@ def main():
     fig, ax = plt.subplots(figsize=(9, 7.5))
 
     diff_colors = {
-        "easy": "tab:green",
-        "medium": "tab:orange",
-        "hard": "tab:red",
+        "easy": COLORS[2],
+        "medium": COLORS[1],
+        "hard": COLORS[3],
     }
     has_difficulty = any(d in diff_colors for d in difficulties)
 
@@ -266,13 +284,14 @@ def main():
         f"c_rew={args.c_rew}, c_ver={args.c_ver}  |  size = (M, K) std deviation across perms"
     )
     ax.grid(True, which="both", alpha=0.25)
-    ax.legend(title=legend_title, loc="upper left", fontsize=10,
+    ax.legend(title=legend_title, loc="upper left",
               framealpha=0.9)
     ax.set_xlim(0.8, n_max)
     ax.set_ylim(0.8, n_max)
+    sns.despine()
     fig.tight_layout()
     out_scatter = out_dir / "plot_mk_scatter.png"
-    fig.savefig(out_scatter, dpi=150)
+    fig.savefig(out_scatter, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[save] {out_scatter}", flush=True)
 
@@ -285,8 +304,8 @@ def main():
     pr_clipped = np.clip(pass_rates, 1.0 / max(M_means.max(), 512), 1.0)
 
     for ax_panel, y_data, y_label, color in [
-        (axes[0], M_means, "M* (samples drawn)", "tab:blue"),
-        (axes[1], K_means, "K* (samples verified)", "tab:orange"),
+        (axes[0], M_means, "M* (samples drawn)", COLORS[0]),
+        (axes[1], K_means, "K* (samples verified)", COLORS[1]),
     ]:
         if has_difficulty:
             for diff_label, dc in diff_colors.items():
@@ -324,7 +343,7 @@ def main():
         ax_panel.set_xlabel("Pass rate (correct samples / total)")
         ax_panel.set_ylabel(y_label + ", log scale")
         ax_panel.grid(True, which="both", alpha=0.25)
-        ax_panel.legend(loc="upper right", fontsize=9, framealpha=0.9)
+        ax_panel.legend(loc="upper right", framealpha=0.9)
 
     axes[0].set_title(f"M* explodes as problems get harder\n"
                       f"(harder = lower pass rate)")
@@ -333,11 +352,11 @@ def main():
     fig.suptitle(
         f"How optimal (M*, K*) depends on problem difficulty  |  "
         f"c_rew={args.c_rew}, c_ver={args.c_ver}, n_perm={args.n_perm}",
-        fontsize=12,
     )
+    sns.despine()
     fig.tight_layout()
     out_pass = out_dir / "plot_mk_vs_passrate.png"
-    fig.savefig(out_pass, dpi=150)
+    fig.savefig(out_pass, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[save] {out_pass}", flush=True)
 
@@ -392,12 +411,13 @@ def main():
         f"c_rew={args.c_rew}, c_ver={args.c_ver}"
     )
     ax.grid(True, which="both", alpha=0.2)
-    ax.legend(loc="upper left", fontsize=10)
+    ax.legend(loc="upper left")
     ax.set_xlim(0.8, n_max)
     ax.set_ylim(0.8, n_max)
+    sns.despine()
     fig.tight_layout()
     out_iso = out_dir / "plot_mk_iso_cost.png"
-    fig.savefig(out_iso, dpi=150)
+    fig.savefig(out_iso, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[save] {out_iso}", flush=True)
 
@@ -408,14 +428,14 @@ def main():
     log_max = np.log10(max(M_means.max(), K_means.max()) * 1.2)
     bins = np.logspace(0, log_max, 25)
 
-    axes[0].hist(M_means, bins=bins, color="tab:blue", alpha=0.7, edgecolor="black")
+    axes[0].hist(M_means, bins=bins, color=COLORS[0], alpha=0.7, edgecolor="black")
     axes[0].set_xscale("log")
     axes[0].set_xlabel("M* (mean across permutations)")
     axes[0].set_ylabel("Number of problems")
     axes[0].set_title(f"Distribution of M* across {len(rows)} problems")
     axes[0].grid(True, which="both", alpha=0.3)
 
-    axes[1].hist(K_means, bins=bins, color="tab:orange", alpha=0.7, edgecolor="black")
+    axes[1].hist(K_means, bins=bins, color=COLORS[1], alpha=0.7, edgecolor="black")
     axes[1].set_xscale("log")
     axes[1].set_xlabel("K* (mean across permutations)")
     axes[1].set_ylabel("Number of problems")
@@ -425,9 +445,10 @@ def main():
     fig.suptitle(
         f"Per-problem optimal-(M, K) marginals (c_rew={args.c_rew}, c_ver={args.c_ver})"
     )
+    sns.despine()
     fig.tight_layout()
     out_marg = out_dir / "plot_mk_marginals.png"
-    fig.savefig(out_marg, dpi=150)
+    fig.savefig(out_marg, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[save] {out_marg}", flush=True)
 

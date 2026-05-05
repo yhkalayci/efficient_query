@@ -442,7 +442,7 @@ def make_plots(
 
     def _make_title(base, task, model_name, reward_model_name):
         if task:
-            base = f"{base} — {task}"   # em-dash
+            base = f"{base} -- {task}"
         sub = ""
         if model_name and reward_model_name:
             sub = f"Gen: {model_name}  |  Reward: {reward_model_name}"
@@ -597,7 +597,7 @@ def make_plots(
         ax.text(
             0.02,
             0.98,
-            f"BF cost to match ADAP quality:\n{match_cost:.1f} = {match_ratio:.2f}× ADAP\nGap = {match_gap:+.1f}",
+            f"BF cost to match ADAP quality:\n{match_cost:.1f} = {match_ratio:.2f}x ADAP\nGap = {match_gap:+.1f}",
             transform=ax.transAxes,
             va="top",
             ha="left",
@@ -643,7 +643,7 @@ def make_plots(
 
     # Highlight trials where adaptive is much more expensive than oracle.
     ratio = sorted_ad_cost / np.maximum(sorted_oracle_cost, 1e-9)
-    high_ratio = ratio >= 2.0
+    high_ratio = ratio >= 8.0
     if np.any(high_ratio):
         ax.scatter(
             x[high_ratio],
@@ -651,7 +651,7 @@ def make_plots(
             s=22,
             color='black',
             alpha=0.55,
-            label=r'ADAP / SAP $\geq 2\times$',
+            label=r'ADAP / SAP $\geq 8\times$',
             zorder=5,
         )
 

@@ -210,7 +210,7 @@ def make_plots(
 
     def _make_title(base, task, model_name, reward_model_name):
         if task:
-            base = f"{base} — {task}"   # em-dash
+            base = f"{base} -- {task}"
         sub = ""
         if model_name and reward_model_name:
             sub = f"Gen: {model_name}  |  Reward: {reward_model_name}"
@@ -256,13 +256,13 @@ def make_plots(
 
     ax.plot(G_vals, g_ratio, color=COLORS[0], label=r'DAP_k / ADAP', **marker_kw)
     ax.axhline(1.0,          color=COLORS[3],    linestyle='--', linewidth=2.0,
-               label=f'ADAP (1.00×)')
+               label='ADAP (1.00x)')
     ax.axhline(oracle_ratio, color=COLORS[1],    linestyle=':',  linewidth=1.8,
-               label=f'SAP ({oracle_ratio:.2f}×)')
+               label=f'SAP ({oracle_ratio:.2f}x)')
 
     # annotate each G point with its ratio
     for g, ratio in zip(G_vals, g_ratio):
-        ax.annotate(f'{ratio:.2f}×', xy=(g, ratio), xytext=(0, 6),
+        ax.annotate(f'{ratio:.2f}x', xy=(g, ratio), xytext=(0, 6),
                     textcoords='offset points', ha='center', fontsize=8)
 
     ax.set_xlabel(r'Difficulty levels $k$')

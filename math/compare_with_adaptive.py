@@ -229,7 +229,7 @@ def make_plots(
     # ---- Plot 1: absolute cost vs G ----
     fig, ax = plt.subplots(figsize=(9, 5))
 
-    ax.plot(G_vals, g_cost, color=COLORS[0], label='DAP_k', **marker_kw)
+    ax.plot(G_vals, g_cost, color=COLORS[0], label=r'DAP$_k$', **marker_kw)
     ax.axhline(ad_avg_cost,     color=COLORS[3],    linestyle='--', linewidth=2.0,
                label=f'ADAP (cost={ad_avg_cost:.2f})')
     ax.axhline(oracle_avg_cost, color=COLORS[1],    linestyle=':',  linewidth=1.8,
@@ -239,7 +239,7 @@ def make_plots(
     ax.set_ylabel('Average cost per trial')
     ax.set_yscale('log')
     ax.set_xticks(G_vals)
-    title1, sub1 = _make_title("DAP_k Cost vs. ADAP", task, model_name, reward_model_name)
+    title1, sub1 = _make_title(r'DAP$_k$ Cost vs. ADAP', task, model_name, reward_model_name)
     ax.set_title(f"{title1}\n{sub1}" if sub1 else title1)
     ax.legend()
     ax.grid(True, alpha=0.3)
@@ -254,7 +254,7 @@ def make_plots(
 
     fig, ax = plt.subplots(figsize=(9, 5))
 
-    ax.plot(G_vals, g_ratio, color=COLORS[0], label=r'DAP_k / ADAP', **marker_kw)
+    ax.plot(G_vals, g_ratio, color=COLORS[0], label=r'DAP$_k$ / ADAP', **marker_kw)
     ax.axhline(1.0,          color=COLORS[3],    linestyle='--', linewidth=2.0,
                label='ADAP (1.00x)')
     ax.axhline(oracle_ratio, color=COLORS[1],    linestyle=':',  linewidth=1.8,
@@ -268,7 +268,7 @@ def make_plots(
     ax.set_xlabel(r'Difficulty levels $k$')
     ax.set_ylabel(r'Cost / ADAP cost')
     ax.set_xticks(G_vals)
-    title2, sub2 = _make_title("Cost Savings: ADAP over DAP_k", task, model_name, reward_model_name)
+    title2, sub2 = _make_title(r'Cost Savings: ADAP over DAP$_k$', task, model_name, reward_model_name)
     ax.set_title(f"{title2}\n{sub2}" if sub2 else title2)
     ax.legend()
     ax.grid(True, alpha=0.3)

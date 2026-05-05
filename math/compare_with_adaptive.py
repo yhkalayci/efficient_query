@@ -235,7 +235,7 @@ def make_plots(
     ax.axhline(oracle_avg_cost, color=COLORS[1],    linestyle=':',  linewidth=1.8,
                label=f'SAP (cost={oracle_avg_cost:.2f})')
 
-    ax.set_xlabel(r'Difficulty levels $k$')
+    ax.set_xlabel(r'Number of difficulty classes $k$')
     ax.set_ylabel('Average cost per trial')
     ax.set_yscale('log')
     ax.set_xticks(G_vals)
@@ -265,7 +265,7 @@ def make_plots(
         ax.annotate(f'{ratio:.2f}x', xy=(g, ratio), xytext=(0, 6),
                     textcoords='offset points', ha='center', fontsize=8)
 
-    ax.set_xlabel(r'Difficulty levels $k$')
+    ax.set_xlabel(r'Number of difficulty classes $k$')
     ax.set_ylabel(r'Cost / ADAP cost')
     ax.set_xticks(G_vals)
     title2, sub2 = _make_title(r'Cost Savings: ADAP over DAP$_k$', task, model_name, reward_model_name)

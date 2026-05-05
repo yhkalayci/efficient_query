@@ -442,14 +442,14 @@ def make_plots(
 
     def _make_title(base, task, model_name, reward_model_name):
         if task:
-            base = f"{base} — {task}"   # em-dash
+            base = f"{base} -- {task}"
         sub = ""
         if model_name and reward_model_name:
-            sub = f"Gen: {model_name}  |  Reward: {reward_model_name}"
+            sub = f"Generator model: {model_name}  |  Reward model: {reward_model_name}"
         elif model_name:
-            sub = f"Gen: {model_name}"
+            sub = f"Generator model: {model_name}"
         elif reward_model_name:
-            sub = f"Reward: {reward_model_name}"
+            sub = f"Reward model: {reward_model_name}"
         return base, sub
 
     n_trials = len(adaptive_results)
@@ -521,7 +521,7 @@ def make_plots(
         edgecolors="black",
         linewidths=1.0,
         zorder=6,
-        label=f"ADAP (cost={ad_avg_cost:.1f}, acc={ad_success_rate:.3f})",
+        label=f"ADAP (cost={ad_avg_cost:.1f}, success rate={ad_success_rate:.3f})",
     )
     ax.scatter(
         [oracle_avg_cost],
@@ -532,7 +532,7 @@ def make_plots(
         edgecolors="black",
         linewidths=0.8,
         zorder=6,
-        label=f"SAP (cost={oracle_avg_cost:.1f}, acc={oracle_success_rate:.3f})",
+        label=f"SAP (cost={oracle_avg_cost:.1f}, success rate={oracle_success_rate:.3f})",
     )
 
     if np.isfinite(match_cost):
@@ -547,7 +547,7 @@ def make_plots(
             zorder=6,
             label=(
                 f"BF matched to ADAP (cost={match_cost:.1f}, "
-                f"acc={match_succ:.3f})"
+                f"success rate={match_succ:.3f})"
             ),
         )
 
@@ -574,24 +574,24 @@ def make_plots(
     ax.set_ylabel("Accuracy / solved fraction")
     if np.isfinite(match_cost):
         gap_text = (
-            f"To match ADAP acc={ad_success_rate:.3f}, BF needs cost={match_cost:.1f} "
+            f"To match ADAP success rate={ad_success_rate:.3f}, BF needs cost={match_cost:.1f} "
             f"(gap={match_gap:+.1f}, ratio={match_ratio:.2f}x, (M,K)={match_mk})"
         )
     else:
         gap_text = (
-            f"No BF strategy reaches ADAP acc={ad_success_rate:.3f}; "
-            f"best achievable BF acc={match_succ:.3f}"
+            f"No BF strategy reaches ADAP success rate={ad_success_rate:.3f}; "
+            f"best achievable BF success rate={match_succ:.3f}"
         )
     title1, model_sub = _make_title("Cost vs. Accuracy", task, model_name, reward_model_name)
     subtitle1_content = _wrapped_title(
-        f"At ADAP avg-cost budget, BF is (M,K)={bf_mk_at_ad}, actual cost={bf_cost_at_ad:.1f}, acc={bf_curve_at_ad:.3f}.",
+        f"At ADAP average cost budget, BF is (M,K)={bf_mk_at_ad}, actual cost={bf_cost_at_ad:.1f}, success rate={bf_curve_at_ad:.3f}.",
         gap_text,
-        width=88,
+        width=95,
     )
-    fig.suptitle(title1, y=0.98)
+    fig.suptitle(title1, y=0.98, fontsize=16)
     if model_sub:
         fig.text(0.5, 0.945, model_sub, ha='center', va='top', fontsize=11)
-    fig.text(0.5, 0.91 if model_sub else 0.945, subtitle1_content, ha="center", va="top", fontsize=10.5)
+    fig.text(0.5, 0.905 if model_sub else 0.945, subtitle1_content, ha="center", va="top", fontsize=10.5)
     ax.grid(True, alpha=0.3)
     if np.isfinite(match_cost):
         ax.text(
@@ -606,7 +606,7 @@ def make_plots(
         )
     ax.legend(loc="lower right")
     sns.despine()
-    fig.tight_layout(rect=[0, 0, 1, 0.77 if model_sub else 0.83])
+    fig.tight_layout(rect=[0, 0, 1, 0.83 if model_sub else 0.88])
     fig.savefig(out_dir / "plot_requested_cost_vs_accuracy.png", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
@@ -667,13 +667,13 @@ def make_plots(
     title2, model_sub2 = _make_title("Per-trial Cost Sorted by SAP", task, model_name, reward_model_name)
     subtitle2_content = _wrapped_title(
         "Background shading shows whether BF succeeds on each trial.",
-        f"BF under ADAP avg-cost budget: (M,K)={best_mk_at_ad}, actual cost={best_cost_at_ad:.1f}, avg acc={best_succ_at_ad:.3f}.",
-        width=96,
+        f"BF under ADAP average cost budget: (M,K)={best_mk_at_ad}, actual cost={best_cost_at_ad:.1f}, avg success rate={best_succ_at_ad:.3f}.",
+        width=105,
     )
-    fig.suptitle(title2, y=0.98)
+    fig.suptitle(title2, y=0.98, fontsize=16)
     if model_sub2:
         fig.text(0.5, 0.945, model_sub2, ha='center', va='top', fontsize=11)
-    fig.text(0.5, 0.91 if model_sub2 else 0.948, subtitle2_content, ha="center", va="top", fontsize=10.5)
+    fig.text(0.5, 0.905 if model_sub2 else 0.945, subtitle2_content, ha="center", va="top", fontsize=10.5)
     ax.grid(True, alpha=0.3)
     line_handles, line_labels = ax.get_legend_handles_labels()
     ax.legend(
@@ -684,7 +684,7 @@ def make_plots(
     )
 
     sns.despine()
-    fig.tight_layout(rect=[0, 0, 1, 0.80 if model_sub2 else 0.86])
+    fig.tight_layout(rect=[0, 0, 1, 0.83 if model_sub2 else 0.88])
     fig.savefig(out_dir / 'plot_requested_sorted_by_oracle_cost.png', dpi=160, bbox_inches="tight")
     plt.close(fig)
 

@@ -9,6 +9,7 @@ set -euo pipefail
 #   G_MAX           Max number of groups (default: 10)
 
 CODING_OUTDIR="${CODING_OUTDIR:-./results/coding}"
+CODING_MODEL="${CODING_MODEL:-}"
 G_MAX="${G_MAX:-10}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

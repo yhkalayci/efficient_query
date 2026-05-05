@@ -188,70 +188,60 @@ def make_plots(
     out_dir: Path,
 ):
     import matplotlib.pyplot as plt
-    import matplotlib.cm as cm
 
-    G_max    = len(grouped_results)
-    G_vals   = list(range(1, G_max + 1))
-    g_succ   = [r[0] for r in grouped_results]
-    g_cost   = [r[1] for r in grouped_results]
-    colors   = cm.Blues(np.linspace(0.35, 0.90, G_max))
+    G_max  = len(grouped_results)
+    G_vals = list(range(1, G_max + 1))
+    g_cost = [r[1] for r in grouped_results]
 
-    # ---- Plot 1: bar chart G vs. cost and success ----
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 8), sharex=True)
+    marker_kw = dict(marker='o', markersize=6, linewidth=2.0)
 
-    ax1.bar(G_vals, g_cost, color=colors, edgecolor='white', linewidth=0.5)
-    ax1.axhline(ad_avg_cost,    color='red',        linestyle='--', linewidth=2.0,
-                label=f'Adaptive cost = {ad_avg_cost:.2f}')
-    ax1.axhline(oracle_avg_cost, color='tab:orange', linestyle=':',  linewidth=1.8,
-                label=f'Oracle cost = {oracle_avg_cost:.2f}')
-    ax1.set_ylabel('Average cost per trial')
-    ax1.set_yscale('log')
-    ax1.legend(fontsize=9)
-    ax1.grid(True, alpha=0.3, axis='y')
-    ax1.set_title(f'Optimal G-group fixed strategy  (c_rew={c_rew}, c_ver={c_ver})', fontsize=13)
+    # ---- Plot 1: absolute cost vs G ----
+    fig, ax = plt.subplots(figsize=(9, 5))
 
-    ax2.bar(G_vals, g_succ, color=colors, edgecolor='white', linewidth=0.5)
-    ax2.axhline(ad_success_rate, color='red', linestyle='--', linewidth=2.0,
-                label=f'Adaptive acc = {ad_success_rate:.3f}')
-    ax2.set_ylabel('Average success rate')
-    ax2.set_xlabel('Number of groups G')
-    ax2.set_ylim(0, 1.05)
-    ax2.set_xticks(G_vals)
-    ax2.legend(fontsize=9)
-    ax2.grid(True, alpha=0.3, axis='y')
+    ax.plot(G_vals, g_cost, color='tab:blue', label='G-group optimal cost', **marker_kw)
+    ax.axhline(ad_avg_cost,     color='red',        linestyle='--', linewidth=2.0,
+               label=f'Adaptive cost = {ad_avg_cost:.2f}')
+    ax.axhline(oracle_avg_cost, color='tab:orange', linestyle=':',  linewidth=1.8,
+               label=f'Oracle cost = {oracle_avg_cost:.2f}')
 
-    fig.tight_layout()
-    fig.savefig(out_dir / 'plot_grouped_g_bars.png', dpi=160)
-    plt.close(fig)
-
-    # ---- Plot 2: (cost, success) scatter ----
-    fig, ax = plt.subplots(figsize=(9, 6))
-
-    for g, (succ, cost, _) in zip(G_vals, grouped_results):
-        ax.scatter([cost], [succ], color=colors[g - 1], s=130, zorder=4,
-                   edgecolors='black', linewidths=0.8)
-        ax.annotate(f'G={g}', xy=(cost, succ), xytext=(6, 3),
-                    textcoords='offset points', fontsize=9)
-
-    ax.plot(g_cost, g_succ, color='tab:blue', linewidth=1.3, alpha=0.45, zorder=3)
-
-    ax.scatter([ad_avg_cost], [ad_success_rate], color='red', s=250, marker='*',
-               edgecolors='black', linewidths=1.0, zorder=6,
-               label=f'Adaptive: cost={ad_avg_cost:.2f}, acc={ad_success_rate:.3f}')
-    ax.scatter([oracle_avg_cost], [1.0], color='tab:orange', s=180, marker='D',
-               edgecolors='black', linewidths=0.8, zorder=6,
-               label=f'Oracle: cost={oracle_avg_cost:.2f}, acc=1.000')
-
-    ax.set_xscale('log')
-    ax.set_xlabel('Average cost per trial')
-    ax.set_ylabel('Average success rate')
-    ax.set_ylim(-0.02, 1.05)
-    ax.set_title(f'Cost vs. success: G-group fixed vs. adaptive  (c_rew={c_rew}, c_ver={c_ver})',
+    ax.set_xlabel('Number of groups G')
+    ax.set_ylabel('Average cost per trial')
+    ax.set_yscale('log')
+    ax.set_xticks(G_vals)
+    ax.set_title(f'G-group fixed strategy cost vs. adaptive  (c_rew={c_rew}, c_ver={c_ver})',
                  fontsize=12)
-    ax.legend(fontsize=9, loc='lower right')
+    ax.legend(fontsize=9)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    fig.savefig(out_dir / 'plot_grouped_cost_vs_success.png', dpi=160)
+    fig.savefig(out_dir / 'plot_grouped_g_cost.png', dpi=160)
+    plt.close(fig)
+
+    # ---- Plot 2: cost ratio relative to adaptive ----
+    g_ratio     = [c / ad_avg_cost for c in g_cost]
+    oracle_ratio = oracle_avg_cost / ad_avg_cost
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    ax.plot(G_vals, g_ratio, color='tab:blue', label='G-group cost / adaptive cost', **marker_kw)
+    ax.axhline(1.0,          color='red',        linestyle='--', linewidth=2.0,
+               label=f'Adaptive (1.00×)')
+    ax.axhline(oracle_ratio, color='tab:orange', linestyle=':',  linewidth=1.8,
+               label=f'Oracle ({oracle_ratio:.2f}×)')
+
+    # annotate each G point with its ratio
+    for g, ratio in zip(G_vals, g_ratio):
+        ax.annotate(f'{ratio:.2f}×', xy=(g, ratio), xytext=(0, 6),
+                    textcoords='offset points', ha='center', fontsize=8)
+
+    ax.set_xlabel('Number of groups G')
+    ax.set_ylabel('Cost / adaptive cost')
+    ax.set_xticks(G_vals)
+    ax.set_title(f'Cost savings of adaptive over G-group fixed  (c_rew={c_rew}, c_ver={c_ver})',
+                 fontsize=12)
+    ax.legend(fontsize=9)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_dir / 'plot_grouped_cost_ratio.png', dpi=160)
     plt.close(fig)
 
 

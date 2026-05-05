@@ -586,7 +586,7 @@ def make_plots(
     subtitle1_content = _wrapped_title(
         f"At ADAP average cost budget, BF is (M,K)={bf_mk_at_ad}, actual cost={bf_cost_at_ad:.1f}, success rate={bf_curve_at_ad:.3f}.",
         gap_text,
-        width=95,
+        width=120,
     )
     fig.suptitle(title1, y=0.98, fontsize=16)
     if model_sub:

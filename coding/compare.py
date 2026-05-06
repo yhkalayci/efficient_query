@@ -677,7 +677,7 @@ def make_plots(
     fig.tight_layout()
     top2 = 0.84 if n_subs2 == 2 else (0.89 if n_subs2 == 1 else 0.94)
     fig.subplots_adjust(top=top2)
-    fig.savefig(out_dir / 'plot_requested_sorted_by_oracle_cost.pdf", dpi=160, bbox_inches="tight")
+    fig.savefig(out_dir / 'plot_requested_sorted_by_oracle_cost.pdf', dpi=160, bbox_inches="tight")
     plt.close(fig)
 
     # ------------------------------------------------------------------

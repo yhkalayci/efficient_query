@@ -245,7 +245,7 @@ def make_plots(
     ax.grid(True, alpha=0.3)
     sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / 'plot_grouped_g_cost.pdf", dpi=160, bbox_inches="tight")
+    fig.savefig(out_dir / 'plot_grouped_g_cost.pdf', dpi=160, bbox_inches="tight")
     plt.close(fig)
 
     # ---- Plot 2: cost ratio relative to adaptive ----
@@ -274,7 +274,7 @@ def make_plots(
     ax.grid(True, alpha=0.3)
     sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / 'plot_grouped_cost_ratio.pdf", dpi=160, bbox_inches="tight")
+    fig.savefig(out_dir / 'plot_grouped_cost_ratio.pdf', dpi=160, bbox_inches="tight")
     plt.close(fig)
 
 

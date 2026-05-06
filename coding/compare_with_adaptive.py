@@ -252,7 +252,7 @@ def make_plots(
     g_ratio     = [c / ad_avg_cost for c in g_cost]
     oracle_ratio = oracle_avg_cost / ad_avg_cost
 
-    fig, ax = plt.subplots(figsize=(6, 6))
+    fig, ax = plt.subplots(figsize=(9.5, 7.5))
 
     ax.plot(G_vals, g_ratio, color=COLORS[0], label=r'DAP$_k$ / ADAP', **marker_kw)
     ax.axhline(1.0,          color=COLORS[3],    linestyle='--', linewidth=2.0,

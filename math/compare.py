@@ -500,7 +500,7 @@ def make_plots(
     # ------------------------------------------------------------------
     # Plot 1: requested cost-vs-accuracy plot
     # ------------------------------------------------------------------
-    fig, ax = plt.subplots(figsize=(10.8, 6.4))
+    fig, ax = plt.subplots(figsize=(8.6, 6.4))
 
     ax.step(
         cost_grid,
@@ -508,7 +508,7 @@ def make_plots(
         where="post",
         linewidth=2.3,
         color=COLORS[0],
-        label="BF",
+        label="Uniform",
     )
 
     # mark adaptive and oracle averages
@@ -546,7 +546,7 @@ def make_plots(
             linewidths=0.8,
             zorder=6,
             label=(
-                f"BF matched to ADAP (cost={match_cost:.1f}, "
+                f"Uniform matched to ADAP (cost={match_cost:.1f}, "
                 f"success rate={match_succ:.3f})"
             ),
         )
@@ -572,42 +572,23 @@ def make_plots(
     ax.set_ylim(-0.02, 1.08)
     ax.set_xlabel("Cost budget")
     ax.set_ylabel("Accuracy / solved fraction")
-    if np.isfinite(match_cost):
-        gap_text = (
-            f"To match ADAP success rate={ad_success_rate:.3f}, BF needs cost={match_cost:.1f} "
-            f"(gap={match_gap:+.1f}, ratio={match_ratio:.2f}x, (M,K)={match_mk})"
-        )
-    else:
-        gap_text = (
-            f"No BF strategy reaches ADAP success rate={ad_success_rate:.3f}; "
-            f"best achievable BF success rate={match_succ:.3f}"
-        )
     title1, model_sub = _make_title("Cost vs. Accuracy", task, model_name, reward_model_name)
-    subtitle1_content = _wrapped_title(
-        f"At ADAP average cost budget, BF is (M,K)={bf_mk_at_ad}, actual cost={bf_cost_at_ad:.1f}, success rate={bf_curve_at_ad:.3f}.",
-        gap_text,
-        width=120,
-    )
-    fig.suptitle(title1, y=0.98, fontsize=16)
-    if model_sub:
-        fig.text(0.5, 0.945, model_sub, ha='center', va='top', fontsize=11)
-    fig.text(0.5, 0.905 if model_sub else 0.945, subtitle1_content, ha="center", va="top", fontsize=10.5)
+    fig.suptitle(title1, fontsize=18)
     ax.grid(True, alpha=0.3)
     if np.isfinite(match_cost):
         ax.text(
             0.02,
             0.98,
-            f"BF cost to match ADAP quality:\n{match_cost:.1f} = {match_ratio:.2f}x ADAP\nGap = {match_gap:+.1f}",
+            f"Uniform cost to match ADAP:\n{match_cost:.1f} = {match_ratio:.2f}x ADAP\nGap = {match_gap:+.1f}",
             transform=ax.transAxes,
             va="top",
             ha="left",
-            fontsize=8.8,
+            fontsize=9,
             bbox=dict(boxstyle="round", facecolor="white", alpha=0.82, edgecolor="0.7"),
         )
     ax.legend(loc="lower right")
     sns.despine()
-    fig.tight_layout()
-    fig.subplots_adjust(top=0.82 if model_sub else 0.87)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
     fig.savefig(out_dir / "plot_requested_cost_vs_accuracy.png", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
@@ -620,7 +601,7 @@ def make_plots(
     sorted_fixed_success = fixed_at_ad_success[order]
     x = np.arange(len(order))
 
-    fig, ax = plt.subplots(figsize=(12.5, 7.0))
+    fig, ax = plt.subplots(figsize=(10.0, 7.0))
 
     # Color the background by whether the best fixed non-adaptive strategy
     # succeeds on each trial. Merge consecutive trials with the same outcome into
@@ -658,23 +639,15 @@ def make_plots(
 
     from matplotlib.patches import Patch
     bg_handles = [
-        Patch(facecolor=COLORS[2], alpha=0.22, edgecolor='none', label='BF succeeds'),
-        Patch(facecolor=COLORS[3], alpha=0.28, edgecolor='none', label='BF fails'),
+        Patch(facecolor=COLORS[2], alpha=0.22, edgecolor='none', label='Uniform succeeds'),
+        Patch(facecolor=COLORS[3], alpha=0.28, edgecolor='none', label='Uniform fails'),
     ]
 
     ax.set_yscale('log')
     ax.set_ylabel('Per-trial cost')
     ax.set_xlabel('Trials sorted by SAP minimum cost')
     title2, model_sub2 = _make_title("Per-trial Cost Sorted by SAP", task, model_name, reward_model_name)
-    subtitle2_content = _wrapped_title(
-        "Background shading shows whether BF succeeds on each trial.",
-        f"BF under ADAP average cost budget: (M,K)={best_mk_at_ad}, actual cost={best_cost_at_ad:.1f}, avg success rate={best_succ_at_ad:.3f}.",
-        width=105,
-    )
-    fig.suptitle(title2, y=0.98, fontsize=16)
-    if model_sub2:
-        fig.text(0.5, 0.945, model_sub2, ha='center', va='top', fontsize=11)
-    fig.text(0.5, 0.905 if model_sub2 else 0.945, subtitle2_content, ha="center", va="top", fontsize=10.5)
+    fig.suptitle(title2, fontsize=18)
     ax.grid(True, alpha=0.3)
     line_handles, line_labels = ax.get_legend_handles_labels()
     ax.legend(
@@ -685,8 +658,7 @@ def make_plots(
     )
 
     sns.despine()
-    fig.tight_layout()
-    fig.subplots_adjust(top=0.83 if model_sub2 else 0.87)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
     fig.savefig(out_dir / 'plot_requested_sorted_by_oracle_cost.png', dpi=160, bbox_inches="tight")
     plt.close(fig)
 

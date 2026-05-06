@@ -574,6 +574,8 @@ def make_plots(
     ax.set_ylabel("Accuracy / solved fraction")
     title1, model_sub = _make_title("Cost vs. Accuracy", task, model_name, reward_model_name)
     fig.suptitle(title1, fontsize=18)
+    if model_sub:
+        fig.text(0.5, 0.935, model_sub, ha='center', va='top', fontsize=13)
     ax.grid(True, alpha=0.3)
     if np.isfinite(match_cost):
         ax.text(
@@ -588,7 +590,7 @@ def make_plots(
         )
     ax.legend(loc="lower right")
     sns.despine()
-    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.tight_layout(rect=[0, 0, 1, 0.91 if model_sub else 0.95])
     fig.savefig(out_dir / "plot_requested_cost_vs_accuracy.png", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
@@ -648,6 +650,8 @@ def make_plots(
     ax.set_xlabel('Trials sorted by SAP minimum cost')
     title2, model_sub2 = _make_title("Per-trial Cost Sorted by SAP", task, model_name, reward_model_name)
     fig.suptitle(title2, fontsize=18)
+    if model_sub2:
+        fig.text(0.5, 0.935, model_sub2, ha='center', va='top', fontsize=13)
     ax.grid(True, alpha=0.3)
     line_handles, line_labels = ax.get_legend_handles_labels()
     ax.legend(
@@ -658,7 +662,7 @@ def make_plots(
     )
 
     sns.despine()
-    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.tight_layout(rect=[0, 0, 1, 0.91 if model_sub2 else 0.95])
     fig.savefig(out_dir / 'plot_requested_sorted_by_oracle_cost.png', dpi=160, bbox_inches="tight")
     plt.close(fig)
 

@@ -213,11 +213,11 @@ def make_plots(
             base = f"{base} -- {task}"
         sub = ""
         if model_name and reward_model_name:
-            sub = f"Gen: {model_name}  |  Reward: {reward_model_name}"
+            sub = f"Generator model: {model_name}  |  Reward model: {reward_model_name}"
         elif model_name:
-            sub = f"Gen: {model_name}"
+            sub = f"Generator model: {model_name}"
         elif reward_model_name:
-            sub = f"Reward: {reward_model_name}"
+            sub = f"Reward model: {reward_model_name}"
         return base, sub
 
     G_max  = len(grouped_results)
@@ -252,7 +252,7 @@ def make_plots(
     g_ratio     = [c / ad_avg_cost for c in g_cost]
     oracle_ratio = oracle_avg_cost / ad_avg_cost
 
-    fig, ax = plt.subplots(figsize=(9, 5))
+    fig, ax = plt.subplots(figsize=(6, 6))
 
     ax.plot(G_vals, g_ratio, color=COLORS[0], label=r'DAP$_k$ / ADAP', **marker_kw)
     ax.axhline(1.0,          color=COLORS[3],    linestyle='--', linewidth=2.0,

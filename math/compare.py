@@ -568,10 +568,14 @@ def make_plots(
     ax.set_xlabel("Cost budget")
     ax.set_ylabel("Accuracy / solved fraction")
     title1, gen_sub, rew_sub = _make_title("Cost vs. Accuracy", task, model_name, reward_model_name)
-    model_sub = "  |  ".join(filter(None, [gen_sub, rew_sub]))
-    fig.suptitle(title1, fontsize=18)
-    if model_sub:
-        fig.text(0.5, 0.935, model_sub, ha='center', va='top', fontsize=13)
+    n_subs1 = sum(bool(s) for s in [gen_sub, rew_sub])
+    fig.suptitle(title1, fontsize=18, y=0.98)
+    y1 = 0.928
+    if gen_sub:
+        fig.text(0.5, y1, gen_sub, ha='center', va='top', fontsize=13)
+        y1 -= 0.040
+    if rew_sub:
+        fig.text(0.5, y1, rew_sub, ha='center', va='top', fontsize=13)
     ax.grid(True, alpha=0.3)
     if np.isfinite(match_cost):
         ax.text(
@@ -586,7 +590,9 @@ def make_plots(
         )
     ax.legend(loc="lower right")
     sns.despine()
-    fig.tight_layout(rect=[0, 0, 1, 0.91 if model_sub else 0.95])
+    fig.tight_layout()
+    top1 = 0.84 if n_subs1 == 2 else (0.89 if n_subs1 == 1 else 0.94)
+    fig.subplots_adjust(top=top1)
     fig.savefig(out_dir / "plot_requested_cost_vs_accuracy.png", dpi=160, bbox_inches="tight")
     plt.close(fig)
 

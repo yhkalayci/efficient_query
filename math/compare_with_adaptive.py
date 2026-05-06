@@ -263,7 +263,7 @@ def make_plots(
     # annotate each G point with its ratio
     for g, ratio in zip(G_vals, g_ratio):
         ax.annotate(f'{ratio:.2f}x', xy=(g, ratio), xytext=(0, 6),
-                    textcoords='offset points', ha='center', fontsize=8)
+                    textcoords='offset points', ha='center', fontsize=14)
 
     ax.set_xlabel(r'Number of difficulty classes $k$')
     ax.set_ylabel(r'Cost / ADAP cost')

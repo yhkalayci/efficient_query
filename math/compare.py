@@ -585,7 +585,7 @@ def make_plots(
             transform=ax.transAxes,
             va="top",
             ha="left",
-            fontsize=9,
+            fontsize=13,
             bbox=dict(boxstyle="round", facecolor="white", alpha=0.82, edgecolor="0.7"),
         )
     ax.legend(loc="lower right")

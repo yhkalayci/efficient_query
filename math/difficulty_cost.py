@@ -374,7 +374,7 @@ def main():
         norm=__import__("matplotlib").colors.LogNorm(),
     )
     cbar = fig.colorbar(sc, ax=ax)
-    cbar.set_label(rf"Avg cost = {args.c_rew:.0f}$\times$M + {args.c_ver:.0f}$\times$K (log)")
+    cbar.set_label(rf"Avg cost = {args.c_rew:.0f}$\times N_{{\mathrm{{rew}}}}$ + {args.c_ver:.0f}$\times N_{{\mathrm{{ver}}}}$ (log)")
 
     # Iso-cost lines: cost = c_rew * M + c_ver * K = C
     # Solve for K: K = (C - c_rew * M) / c_ver
@@ -397,7 +397,7 @@ def main():
         if mid > 0:
             ax.text(
                 M_grid[valid][mid] * 1.05, K_iso[valid][mid] * 0.95,
-                f"cost={C:.0f}", fontsize=7, alpha=0.5, color="black",
+                f"cost={C:.0f}", fontsize=11, alpha=0.7, color="black",
             )
 
     ax.plot([1, n_max], [1, n_max], "k--", alpha=0.25, lw=1, label="K = M")
@@ -407,8 +407,10 @@ def main():
     ax.set_xlabel(r"$N_{\mathrm{rew}}^*$ (samples drawn, log scale)")
     ax.set_ylabel(r"$N_{\mathrm{ver}}^*$ (samples verified, log scale)")
     ax.set_title(
-        r"Per-problem $(N_{\mathrm{rew}}^*, N_{\mathrm{ver}}^*)$ colored by cost -- iso-cost lines shown\n"
-        rf"$c_{{\mathrm{{rew}}}}={args.c_rew}$, $c_{{\mathrm{{ver}}}}={args.c_ver}$"
+        r"Per-problem $(N_{\mathrm{rew}}^*, N_{\mathrm{ver}}^*)$ colored by cost"
+        + "\n"
+        + rf"$c_{{\mathrm{{rew}}}}={args.c_rew:.0f}$,  $c_{{\mathrm{{ver}}}}={args.c_ver:.0f}$",
+        fontsize=20,
     )
     ax.grid(True, which="both", alpha=0.2)
     ax.legend(loc="upper left")

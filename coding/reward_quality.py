@@ -444,6 +444,7 @@ def main():
     ax.legend(loc="upper right")
     sns.despine()
     fig.tight_layout()
+    fig.subplots_adjust(top=0.88)
     fig.savefig(out_dir / "plot_rank_vs_correct.pdf", dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[save] plot_rank_vs_correct.pdf", flush=True)

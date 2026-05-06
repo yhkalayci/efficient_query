@@ -376,7 +376,7 @@ def main():
         norm=__import__("matplotlib").colors.LogNorm(),
     )
     cbar = fig.colorbar(sc, ax=ax)
-    cbar.set_label(f"Avg cost = {args.c_rew:.0f}*M + {args.c_ver:.0f}*K (log)")
+    cbar.set_label(rf"Avg cost = {args.c_rew:.0f}$\times$M + {args.c_ver:.0f}$\times$K (log)")
 
     # Iso-cost lines: cost = c_rew * M + c_ver * K = C
     # Solve for K: K = (C - c_rew * M) / c_ver
@@ -409,8 +409,8 @@ def main():
     ax.set_xlabel("M* (samples drawn, log scale)")
     ax.set_ylabel("K* (samples verified, log scale)")
     ax.set_title(
-        f"Per-problem (M*, K*) colored by cost  |  iso-cost lines shown\n"
-        f"c_rew={args.c_rew}, c_ver={args.c_ver}"
+        "Per-problem (M*, K*) colored by cost  --  iso-cost lines shown\n"
+        rf"$c_{{\mathrm{{rew}}}}={args.c_rew}$, $c_{{\mathrm{{ver}}}}={args.c_ver}$"
     )
     ax.grid(True, which="both", alpha=0.2)
     ax.legend(loc="upper left")

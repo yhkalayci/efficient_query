@@ -386,7 +386,7 @@ def main():
         f"Correctness rate vs. reward rank, averaged over {n_problems} problems\n"
         f"Monotonically decreasing curve = reward ranks are informative"
     )
-    ax.set_ylim(-0.02, 1.02)
+    ax.set_ylim(0, 0.4)
     ax.grid(True, which="both", alpha=0.3)
     ax.legend(loc="upper right")
     sns.despine()

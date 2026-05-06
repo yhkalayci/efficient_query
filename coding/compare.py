@@ -569,7 +569,7 @@ def make_plots(
         ax.axvline(match_cost, color=COLORS[2], linestyle=":", alpha=0.45)
 
     ax.set_xscale("log")
-    ax.set_ylim(-0.02, 1.02)
+    ax.set_ylim(-0.02, 1.08)
     ax.set_xlabel("Cost budget")
     ax.set_ylabel("Accuracy / solved fraction")
     if np.isfinite(match_cost):
@@ -606,7 +606,8 @@ def make_plots(
         )
     ax.legend(loc="lower right")
     sns.despine()
-    fig.tight_layout(rect=[0, 0, 1, 0.83 if model_sub else 0.88])
+    fig.tight_layout()
+    fig.subplots_adjust(top=0.82 if model_sub else 0.87)
     fig.savefig(out_dir / "plot_requested_cost_vs_accuracy.png", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
@@ -684,7 +685,8 @@ def make_plots(
     )
 
     sns.despine()
-    fig.tight_layout(rect=[0, 0, 1, 0.83 if model_sub2 else 0.88])
+    fig.tight_layout()
+    fig.subplots_adjust(top=0.83 if model_sub2 else 0.87)
     fig.savefig(out_dir / 'plot_requested_sorted_by_oracle_cost.png', dpi=160, bbox_inches="tight")
     plt.close(fig)
 

@@ -41,6 +41,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 from sklearn.metrics import roc_auc_score
 
 
@@ -141,20 +142,37 @@ def main():
           f"{int(pooled_c.sum())} correct ({100 * pooled_c.mean():.2f}%)",
           flush=True)
 
+    # ---- Style setup ----
+    sns.set_theme(style="whitegrid", context="paper", palette="deep")
+    plt.rcParams.update({
+        "mathtext.fontset": "cm",
+        "font.family": "serif",
+        "font.serif": ["cmr10"],
+        "axes.formatter.use_mathtext": True,
+        "axes.unicode_minus": False,
+        "axes.labelsize": 16,
+        "axes.titlesize": 16,
+        "xtick.labelsize": 14,
+        "ytick.labelsize": 14,
+        "legend.fontsize": 14,
+        "pdf.fonttype": 42,
+    })
+    COLORS = sns.color_palette("deep").as_hex()
+
     # ---- Plot 1: reward distributions by class ----
     fig, ax = plt.subplots(figsize=(8, 5))
     r_correct = pooled_r[pooled_c == 1]
     r_wrong = pooled_r[pooled_c == 0]
     lo, hi = float(np.min(pooled_r)), float(np.max(pooled_r))
     bins = np.linspace(lo, hi, 60)
-    ax.hist(r_wrong, bins=bins, color="tab:red", alpha=0.55,
+    ax.hist(r_wrong, bins=bins, color=COLORS[3], alpha=0.55,
             label=f"Incorrect (n={len(r_wrong)}, mean={r_wrong.mean():.2f})",
             density=True)
-    ax.hist(r_correct, bins=bins, color="tab:green", alpha=0.55,
+    ax.hist(r_correct, bins=bins, color=COLORS[2], alpha=0.55,
             label=f"Correct (n={len(r_correct)}, mean={r_correct.mean():.2f})",
             density=True)
-    ax.axvline(r_wrong.mean(), color="tab:red", linestyle="--", alpha=0.7)
-    ax.axvline(r_correct.mean(), color="tab:green", linestyle="--", alpha=0.7)
+    ax.axvline(r_wrong.mean(), color=COLORS[3], linestyle="--", alpha=0.7)
+    ax.axvline(r_correct.mean(), color=COLORS[2], linestyle="--", alpha=0.7)
     ax.set_xlabel(f"Reward ({args.reward_key})")
     ax.set_ylabel("Density")
     pooled_auc = auc_safe(pooled_c, pooled_r)
@@ -165,9 +183,10 @@ def main():
         f"{r_correct.mean() - r_wrong.mean():.2f}"
     )
     ax.grid(True, alpha=0.3)
-    ax.legend(loc="upper left", fontsize=10)
+    ax.legend(loc="upper left")
+    sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / "plot_reward_distributions.png", dpi=150)
+    fig.savefig(out_dir / "plot_reward_distributions.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[save] plot_reward_distributions.png", flush=True)
 
@@ -211,7 +230,7 @@ def main():
     ax.errorbar(bin_centers[valid], bin_acc[valid],
                 yerr=[bin_acc[valid] - bin_lo[valid],
                       bin_hi[valid] - bin_acc[valid]],
-                fmt="o-", color="tab:blue", capsize=3,
+                fmt="o-", color=COLORS[0], capsize=3,
                 label="Empirical correctness rate (95% Wilson CI)")
     ax.axhline(pooled_c.mean(), color="black", linestyle=":", alpha=0.5,
                label=f"Marginal correctness rate = {pooled_c.mean():.3f}")
@@ -224,9 +243,10 @@ def main():
     )
     ax.set_ylim(-0.02, 1.02)
     ax.grid(True, alpha=0.3)
-    ax.legend(loc="upper left", fontsize=10)
+    ax.legend(loc="upper left")
+    sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / "plot_calibration.png", dpi=150)
+    fig.savefig(out_dir / "plot_calibration.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[save] plot_calibration.png", flush=True)
 
@@ -270,9 +290,9 @@ def main():
     topk_succ_random /= n_problems
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.plot(ks, topk_succ, "o-", color="tab:blue", linewidth=2,
+    ax.plot(ks, topk_succ, "o-", color=COLORS[0], linewidth=2,
             label="Verify top-k by reward")
-    ax.plot(ks, topk_succ_random, "s--", color="tab:red", linewidth=1.5,
+    ax.plot(ks, topk_succ_random, "s--", color=COLORS[3], linewidth=1.5,
             alpha=0.7,
             label="Verify random k samples (baseline)")
     ax.set_xscale("log")
@@ -284,9 +304,10 @@ def main():
     )
     ax.set_ylim(-0.02, 1.02)
     ax.grid(True, which="both", alpha=0.3)
-    ax.legend(loc="lower right", fontsize=10)
+    ax.legend(loc="lower right")
+    sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / "plot_topk_correctness.png", dpi=150)
+    fig.savefig(out_dir / "plot_topk_correctness.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[save] plot_topk_correctness.png", flush=True)
 
@@ -299,13 +320,13 @@ def main():
     per_problem_aucs = np.asarray(per_problem_aucs)
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.hist(per_problem_aucs, bins=20, color="tab:purple", alpha=0.75,
+    ax.hist(per_problem_aucs, bins=20, color=COLORS[4], alpha=0.75,
             edgecolor="black")
     ax.axvline(0.5, color="black", linestyle="--", alpha=0.6,
                label="Chance (AUC = 0.5)")
-    ax.axvline(per_problem_aucs.mean(), color="tab:red", linestyle="-",
+    ax.axvline(per_problem_aucs.mean(), color=COLORS[3], linestyle="-",
                alpha=0.8, label=f"Mean = {per_problem_aucs.mean():.3f}")
-    ax.axvline(np.median(per_problem_aucs), color="tab:blue", linestyle="-",
+    ax.axvline(np.median(per_problem_aucs), color=COLORS[0], linestyle="-",
                alpha=0.8, label=f"Median = {np.median(per_problem_aucs):.3f}")
     ax.set_xlabel("Per-problem AUC of reward vs. correctness")
     ax.set_ylabel("Number of problems")
@@ -317,9 +338,10 @@ def main():
     )
     ax.set_xlim(0, 1)
     ax.grid(True, alpha=0.3, axis="y")
-    ax.legend(loc="upper left", fontsize=10)
+    ax.legend(loc="upper left")
+    sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / "plot_per_problem_auc_hist.png", dpi=150)
+    fig.savefig(out_dir / "plot_per_problem_auc_hist.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[save] plot_per_problem_auc_hist.png", flush=True)
 
@@ -340,7 +362,7 @@ def main():
     fig, ax = plt.subplots(figsize=(8, 5))
     valid_ranks = rank_count > 0
     ax.plot(np.arange(1, N + 1)[valid_ranks], rank_acc[valid_ranks],
-            color="tab:blue", linewidth=1.8,
+            color=COLORS[0], linewidth=1.8,
             label="P(correct | rank by reward)")
     # Smoothed version with rolling window for visibility
     window = max(5, N // 50)
@@ -352,7 +374,7 @@ def main():
             smoothed[i] = (
                 rank_correct[lo:hi].sum() / rank_count[lo:hi].sum()
             )
-    ax.plot(np.arange(1, N + 1), smoothed, color="tab:orange",
+    ax.plot(np.arange(1, N + 1), smoothed, color=COLORS[1],
             linewidth=2.5, alpha=0.85,
             label=f"Rolling mean (window={window})")
     ax.axhline(pooled_c.mean(), color="black", linestyle=":", alpha=0.5,
@@ -364,11 +386,12 @@ def main():
         f"Correctness rate vs. reward rank, averaged over {n_problems} problems\n"
         f"Monotonically decreasing curve = reward ranks are informative"
     )
-    ax.set_ylim(-0.02, 1.02)
+    ax.set_ylim(0, 0.6)
     ax.grid(True, which="both", alpha=0.3)
-    ax.legend(loc="upper right", fontsize=10)
+    ax.legend(loc="upper right")
+    sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / "plot_rank_vs_correct.png", dpi=150)
+    fig.savefig(out_dir / "plot_rank_vs_correct.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[save] plot_rank_vs_correct.png", flush=True)
 

@@ -150,11 +150,11 @@ def main():
         "font.serif": ["cmr10"],
         "axes.formatter.use_mathtext": True,
         "axes.unicode_minus": False,
-        "axes.labelsize": 16,
-        "axes.titlesize": 16,
-        "xtick.labelsize": 14,
-        "ytick.labelsize": 14,
-        "legend.fontsize": 14,
+        "axes.labelsize": 20,
+        "axes.titlesize": 20,
+        "xtick.labelsize": 17,
+        "ytick.labelsize": 17,
+        "legend.fontsize": 16,
         "pdf.fonttype": 42,
     })
     COLORS = sns.color_palette("deep").as_hex()
@@ -186,9 +186,9 @@ def main():
     ax.legend(loc="upper left")
     sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / "plot_reward_distributions.png", dpi=150, bbox_inches="tight")
+    fig.savefig(out_dir / "plot_reward_distributions.pdf", dpi=150, bbox_inches="tight")
     plt.close(fig)
-    print(f"[save] plot_reward_distributions.png", flush=True)
+    print(f"[save] plot_reward_distributions.pdf", flush=True)
 
     # ---- Plot 2: calibration (reward bin -> empirical correctness rate) ----
     # Use quantile bins so each bin has roughly equal sample count (cleaner than
@@ -246,9 +246,9 @@ def main():
     ax.legend(loc="upper left")
     sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / "plot_calibration.png", dpi=150, bbox_inches="tight")
+    fig.savefig(out_dir / "plot_calibration.pdf", dpi=150, bbox_inches="tight")
     plt.close(fig)
-    print(f"[save] plot_calibration.png", flush=True)
+    print(f"[save] plot_calibration.pdf", flush=True)
 
     # ---- Plot 3: top-k correctness ----
     # For each k, P(at least one correct in top-k by reward) averaged over
@@ -291,12 +291,12 @@ def main():
 
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.plot(ks, topk_succ, "o-", color=COLORS[0], linewidth=2,
-            label="Verify top-k by reward")
+            label=r"Verify top-$N_{\mathrm{ver}}$ by reward")
     ax.plot(ks, topk_succ_random, "s--", color=COLORS[3], linewidth=1.5,
             alpha=0.7,
             label="Verify random k samples (baseline)")
     ax.set_xscale("log")
-    ax.set_xlabel("k (number of samples verified)")
+    ax.set_xlabel(r"$N_{\mathrm{ver}}$ (number of samples verified)")
     ax.set_ylabel("P(at least one correct in verified set)")
     ax.set_title(
         f"Top-k vs random-k verification (averaged over {n_problems} problems)\n"
@@ -307,9 +307,9 @@ def main():
     ax.legend(loc="lower right")
     sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / "plot_topk_correctness.png", dpi=150, bbox_inches="tight")
+    fig.savefig(out_dir / "plot_topk_correctness.pdf", dpi=150, bbox_inches="tight")
     plt.close(fig)
-    print(f"[save] plot_topk_correctness.png", flush=True)
+    print(f"[save] plot_topk_correctness.pdf", flush=True)
 
     # ---- Plot 4: per-problem AUC histogram ----
     per_problem_aucs = []
@@ -341,9 +341,9 @@ def main():
     ax.legend(loc="upper left")
     sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / "plot_per_problem_auc_hist.png", dpi=150, bbox_inches="tight")
+    fig.savefig(out_dir / "plot_per_problem_auc_hist.pdf", dpi=150, bbox_inches="tight")
     plt.close(fig)
-    print(f"[save] plot_per_problem_auc_hist.png", flush=True)
+    print(f"[save] plot_per_problem_auc_hist.pdf", flush=True)
 
     # ---- Plot 5: correctness rate by reward rank ----
     # For each rank position (1 = best reward in problem, N = worst), what
@@ -391,9 +391,9 @@ def main():
     ax.legend(loc="upper right")
     sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / "plot_rank_vs_correct.png", dpi=150, bbox_inches="tight")
+    fig.savefig(out_dir / "plot_rank_vs_correct.pdf", dpi=150, bbox_inches="tight")
     plt.close(fig)
-    print(f"[save] plot_rank_vs_correct.png", flush=True)
+    print(f"[save] plot_rank_vs_correct.pdf", flush=True)
 
     # ---- Summary text ----
     summary_lines = [

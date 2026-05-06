@@ -423,11 +423,11 @@ def make_plots(
         "font.serif": ["cmr10"],
         "axes.formatter.use_mathtext": True,
         "axes.unicode_minus": False,
-        "axes.labelsize": 16,
-        "axes.titlesize": 16,
-        "xtick.labelsize": 14,
-        "ytick.labelsize": 14,
-        "legend.fontsize": 14,
+        "axes.labelsize": 20,
+        "axes.titlesize": 20,
+        "xtick.labelsize": 17,
+        "ytick.labelsize": 17,
+        "legend.fontsize": 16,
         "pdf.fonttype": 42,
     })
     COLORS = sns.color_palette("deep").as_hex()
@@ -569,13 +569,13 @@ def make_plots(
     ax.set_ylabel("Accuracy / solved fraction")
     title1, gen_sub, rew_sub = _make_title("Cost vs. Accuracy", task, model_name, reward_model_name)
     n_subs1 = sum(bool(s) for s in [gen_sub, rew_sub])
-    fig.suptitle(title1, fontsize=18, y=0.98)
+    fig.suptitle(title1, fontsize=22, y=0.98)
     y1 = 0.928
     if gen_sub:
-        fig.text(0.5, y1, gen_sub, ha='center', va='top', fontsize=13)
+        fig.text(0.5, y1, gen_sub, ha='center', va="top", fontsize=15)
         y1 -= 0.040
     if rew_sub:
-        fig.text(0.5, y1, rew_sub, ha='center', va='top', fontsize=13)
+        fig.text(0.5, y1, rew_sub, ha='center', va="top", fontsize=15)
     ax.grid(True, alpha=0.3)
     if np.isfinite(match_cost):
         ax.text(
@@ -593,7 +593,7 @@ def make_plots(
     fig.tight_layout()
     top1 = 0.84 if n_subs1 == 2 else (0.89 if n_subs1 == 1 else 0.94)
     fig.subplots_adjust(top=top1)
-    fig.savefig(out_dir / "plot_requested_cost_vs_accuracy.png", dpi=160, bbox_inches="tight")
+    fig.savefig(out_dir / "plot_requested_cost_vs_accuracy.pdf", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
     # ------------------------------------------------------------------
@@ -653,17 +653,17 @@ def make_plots(
     ]
 
     ax.set_yscale('log')
-    ax.set_ylabel('Cost', fontsize=18)
-    ax.set_xlabel('Prompts sorted in increasing order of SAP cost', fontsize=18)
+    ax.set_ylabel('Cost', fontsize=20)
+    ax.set_xlabel('Prompts sorted in increasing order of SAP cost', fontsize=20)
     title2, gen_sub2, rew_sub2 = _make_title("Per-prompt Comparison", task, model_name, reward_model_name)
     n_subs2 = sum(bool(s) for s in [gen_sub2, rew_sub2])
-    fig.suptitle(title2, fontsize=20, y=0.98)
+    fig.suptitle(title2, fontsize=24, y=0.98)
     y2 = 0.928
     if gen_sub2:
-        fig.text(0.5, y2, gen_sub2, ha='center', va='top', fontsize=13)
+        fig.text(0.5, y2, gen_sub2, ha='center', va="top", fontsize=15)
         y2 -= 0.040
     if rew_sub2:
-        fig.text(0.5, y2, rew_sub2, ha='center', va='top', fontsize=13)
+        fig.text(0.5, y2, rew_sub2, ha='center', va="top", fontsize=15)
     ax.grid(True, alpha=0.3)
     line_handles, line_labels = ax.get_legend_handles_labels()
     ax.legend(
@@ -677,7 +677,7 @@ def make_plots(
     fig.tight_layout()
     top2 = 0.84 if n_subs2 == 2 else (0.89 if n_subs2 == 1 else 0.94)
     fig.subplots_adjust(top=top2)
-    fig.savefig(out_dir / 'plot_requested_sorted_by_oracle_cost.png', dpi=160, bbox_inches="tight")
+    fig.savefig(out_dir / 'plot_requested_sorted_by_oracle_cost.pdf", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
     # ------------------------------------------------------------------
@@ -699,7 +699,7 @@ def make_plots(
     ax.legend()
     sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / "plot_adaptive_vs_oracle_ratio_hist.png", dpi=160, bbox_inches="tight")
+    fig.savefig(out_dir / "plot_adaptive_vs_oracle_ratio_hist.pdf", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
     # ------------------------------------------------------------------
@@ -754,7 +754,7 @@ def make_plots(
         f"  Cost ratio (BF / ADAP)                  = {match_ratio:.6f}" if np.isfinite(match_ratio) else "  Cost ratio (BF / ADAP)                  = inf",
         "",
         "BF under various budget regimes:",
-        "  Curve file                              = plot_requested_cost_vs_accuracy.png",
+        "  Curve file                              = plot_requested_cost_vs_accuracy.pdf",
         "  At budget = ADAP average cost:",
         f"    chosen (M,K)                          = {best_mk_at_ad}",
         f"    M                                     = {bf_ad_M}",
@@ -777,7 +777,7 @@ def make_plots(
         f"  median(ADAP / SAP)                      = {float(np.median(ad_costs / np.maximum(oracle_costs_flat, 1e-9))):.6f}",
         "",
         "Requested sorted-instance plot:",
-        "  File                                    = plot_requested_sorted_by_oracle_cost.png",
+        "  File                                    = plot_requested_sorted_by_oracle_cost.pdf",
         "  Trials are sorted by SAP minimum cost; top panel overlays SAP/ADAP cost,",
         "  bottom panel marks whether the single BF strategy (chosen at ADAP avg-cost budget) succeeds.",
     ]

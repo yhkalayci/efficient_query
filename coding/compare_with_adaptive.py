@@ -199,11 +199,11 @@ def make_plots(
         "font.serif": ["cmr10"],
         "axes.formatter.use_mathtext": True,
         "axes.unicode_minus": False,
-        "axes.labelsize": 16,
-        "axes.titlesize": 16,
-        "xtick.labelsize": 14,
-        "ytick.labelsize": 14,
-        "legend.fontsize": 14,
+        "axes.labelsize": 20,
+        "axes.titlesize": 20,
+        "xtick.labelsize": 17,
+        "ytick.labelsize": 17,
+        "legend.fontsize": 16,
         "pdf.fonttype": 42,
     })
     COLORS = sns.color_palette("deep").as_hex()
@@ -245,7 +245,7 @@ def make_plots(
     ax.grid(True, alpha=0.3)
     sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / 'plot_grouped_g_cost.png', dpi=160, bbox_inches="tight")
+    fig.savefig(out_dir / 'plot_grouped_g_cost.pdf", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
     # ---- Plot 2: cost ratio relative to adaptive ----
@@ -274,7 +274,7 @@ def make_plots(
     ax.grid(True, alpha=0.3)
     sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / 'plot_grouped_cost_ratio.png', dpi=160, bbox_inches="tight")
+    fig.savefig(out_dir / 'plot_grouped_cost_ratio.pdf", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
 

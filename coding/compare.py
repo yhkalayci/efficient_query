@@ -443,14 +443,9 @@ def make_plots(
     def _make_title(base, task, model_name, reward_model_name):
         if task:
             base = f"{base} ({task})"
-        sub = ""
-        if model_name and reward_model_name:
-            sub = f"Generator model: {model_name}  |  Reward model: {reward_model_name}"
-        elif model_name:
-            sub = f"Generator model: {model_name}"
-        elif reward_model_name:
-            sub = f"Reward model: {reward_model_name}"
-        return base, sub
+        gen_sub = f"Generator model: {model_name}" if model_name else ""
+        rew_sub = f"Reward model: {reward_model_name}" if reward_model_name else ""
+        return base, gen_sub, rew_sub
 
     n_trials = len(adaptive_results)
     ad_costs = np.array([r["adaptive_cost"] for r in adaptive_results], dtype=np.float64)
@@ -572,7 +567,8 @@ def make_plots(
     ax.set_ylim(-0.02, 1.08)
     ax.set_xlabel("Cost budget")
     ax.set_ylabel("Accuracy / solved fraction")
-    title1, model_sub = _make_title("Cost vs. Accuracy", task, model_name, reward_model_name)
+    title1, gen_sub, rew_sub = _make_title("Cost vs. Accuracy", task, model_name, reward_model_name)
+    model_sub = "  |  ".join(filter(None, [gen_sub, rew_sub]))
     fig.suptitle(title1, fontsize=18)
     if model_sub:
         fig.text(0.5, 0.935, model_sub, ha='center', va='top', fontsize=13)
@@ -651,12 +647,17 @@ def make_plots(
     ]
 
     ax.set_yscale('log')
-    ax.set_ylabel('Per-trial cost')
-    ax.set_xlabel('Prompts sorted by SAP minimum cost')
-    title2, model_sub2 = _make_title("Per-prompt Comparison", task, model_name, reward_model_name)
-    fig.suptitle(title2, fontsize=18)
-    if model_sub2:
-        fig.text(0.5, 0.935, model_sub2, ha='center', va='top', fontsize=13)
+    ax.set_ylabel('Cost', fontsize=18)
+    ax.set_xlabel('Prompts sorted in increasing order of SAP cost', fontsize=18)
+    title2, gen_sub2, rew_sub2 = _make_title("Per-prompt Comparison", task, model_name, reward_model_name)
+    n_subs2 = sum(bool(s) for s in [gen_sub2, rew_sub2])
+    fig.suptitle(title2, fontsize=20, y=0.98)
+    y2 = 0.928
+    if gen_sub2:
+        fig.text(0.5, y2, gen_sub2, ha='center', va='top', fontsize=13)
+        y2 -= 0.040
+    if rew_sub2:
+        fig.text(0.5, y2, rew_sub2, ha='center', va='top', fontsize=13)
     ax.grid(True, alpha=0.3)
     line_handles, line_labels = ax.get_legend_handles_labels()
     ax.legend(
@@ -667,7 +668,9 @@ def make_plots(
     )
 
     sns.despine()
-    fig.tight_layout(rect=[0, 0, 1, 0.91 if model_sub2 else 0.95])
+    fig.tight_layout()
+    top2 = 0.84 if n_subs2 == 2 else (0.89 if n_subs2 == 1 else 0.94)
+    fig.subplots_adjust(top=top2)
     fig.savefig(out_dir / 'plot_requested_sorted_by_oracle_cost.png', dpi=160, bbox_inches="tight")
     plt.close(fig)
 

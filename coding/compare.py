@@ -442,7 +442,7 @@ def make_plots(
 
     def _make_title(base, task, model_name, reward_model_name):
         if task:
-            base = f"{base} -- {task}"
+            base = f"{base} ({task})"
         sub = ""
         if model_name and reward_model_name:
             sub = f"Generator model: {model_name}  |  Reward model: {reward_model_name}"
@@ -595,12 +595,17 @@ def make_plots(
     plt.close(fig)
 
     # ------------------------------------------------------------------
-    # Plot 2: requested sorted-by-oracle-cost plot
+    # Plot 2: per-prompt comparison (one permutation per problem)
     # ------------------------------------------------------------------
-    order = np.argsort(oracle_costs_flat)
-    sorted_oracle_cost = oracle_costs_flat[order]
-    sorted_ad_cost = ad_costs[order]
-    sorted_fixed_success = fixed_at_ad_success[order]
+    perm0_mask = np.array([r["perm_idx"] == 0 for r in adaptive_results])
+    oracle_costs_p0 = oracle_min_cost[:, 0]
+    ad_costs_p0 = ad_costs[perm0_mask]
+    fixed_success_p0 = fixed_at_ad_success[perm0_mask]
+
+    order = np.argsort(oracle_costs_p0)
+    sorted_oracle_cost = oracle_costs_p0[order]
+    sorted_ad_cost = ad_costs_p0[order]
+    sorted_fixed_success = fixed_success_p0[order]
     x = np.arange(len(order))
 
     fig, ax = plt.subplots(figsize=(10.0, 7.0))
@@ -647,8 +652,8 @@ def make_plots(
 
     ax.set_yscale('log')
     ax.set_ylabel('Per-trial cost')
-    ax.set_xlabel('Trials sorted by SAP minimum cost')
-    title2, model_sub2 = _make_title("Per-trial Cost Sorted by SAP", task, model_name, reward_model_name)
+    ax.set_xlabel('Prompts sorted by SAP minimum cost')
+    title2, model_sub2 = _make_title("Per-prompt Comparison", task, model_name, reward_model_name)
     fig.suptitle(title2, fontsize=18)
     if model_sub2:
         fig.text(0.5, 0.935, model_sub2, ha='center', va='top', fontsize=13)

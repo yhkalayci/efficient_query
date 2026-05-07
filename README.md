@@ -10,9 +10,10 @@ For each problem the pipeline:
 
 1. **Generates** N candidate solutions (default 512) using a language model
 2. **Scores** each solution with a reward model — without running any tests
-3. **Compares** two strategies across a range of cost budgets:
-   - **Fixed (M, K)**: always generate M samples, verify the top-K by reward
-   - **Adaptive**: use a doubling schedule to draw more samples only when needed
+3. **Compares** strategies across a range of cost budgets:
+   - **Fixed (N_rew, N_ver)**: always generate N_rew samples, verify the top-N_ver by reward
+   - **Adaptive (ADAP)**: uses a doubling schedule to draw more samples only when needed
+   - **DAP_k**: partitions problems into k difficulty groups, assigns the optimal fixed strategy per group
 4. **Evaluates** how well the reward signal predicts correctness (`reward_quality.py`)
 5. **Analyzes** how problem difficulty drives compute cost (`difficulty_cost.py`)
 
@@ -48,13 +49,15 @@ Problems: **LiveCodeBench** (`bzantium/livecodebench`, `release_v2`).
 
 ```
 Math (per model):
-  gen.py → reward.py → compare.py (×4) → reward_quality.py → difficulty_cost.py
+  gen.py → reward.py → compare.py (×4) → compare_with_adaptive.py (×4)
+         → reward_quality.py → difficulty_cost.py
 
 Coding:
-  gen.py → verify.py → reward.py → compare.py (×4) → reward_quality.py → difficulty_cost.py
+  gen.py → verify.py → reward.py → compare.py (×4) → compare_with_adaptive.py (×4)
+         → reward_quality.py → difficulty_cost.py
 ```
 
-The coding pipeline has an extra `verify.py` step that executes generated code against test cases across 8 CPU workers. This step is CPU-only and can take significant time.
+Both pipelines run `compare.py` and `compare_with_adaptive.py` four times each, once per cost ratio (`c_ver ∈ {1, 10, 20, 30}`). The coding pipeline has an extra `verify.py` step that executes generated code against test cases using 64 CPU workers; this step is CPU-only and can take several hours.
 
 ---
 
@@ -152,21 +155,20 @@ Each pipeline stage checks whether its output already exists before running. Int
 results/
 ├── math/
 │   ├── qwen-qwen2.5-math-7b/
-│   │   ├── generations.jsonl       # Raw model outputs + correctness labels
-│   │   ├── rewards.jsonl           # PRM step scores (r_min, r_mean, r_last, r_prod)
-│   │   ├── compare_c_ver_1/        # Cost-vs-accuracy plots at c_ver=1
-│   │   ├── compare_c_ver_10/
-│   │   ├── compare_c_ver_20/
-│   │   ├── compare_c_ver_30/
-│   │   ├── reward_quality/         # Reward-correctness alignment diagnostics
-│   │   └── difficulty_cost/        # Per-problem optimal (M*, K*) analysis
+│   │   ├── generations.jsonl                        # Raw model outputs + correctness labels
+│   │   ├── rewards.jsonl                            # PRM step scores (r_min, r_mean, r_last, r_prod)
+│   │   ├── compare_c_ver_{1,10,20,30}/              # ADAP vs fixed-strategy plots
+│   │   ├── compare_with_adaptive_c_ver_{1,10,20,30}/ # DAP_k vs ADAP plots
+│   │   ├── reward_quality/                          # Reward-correctness alignment diagnostics
+│   │   └── difficulty_cost/                         # Per-problem optimal (N_rew*, N_ver*) analysis
 │   ├── qwen-qwen2.5-14b/
 │   └── deepseek-ai-deepseek-r1-distill-qwen-7b/
 └── coding/
-    ├── generations.jsonl           # Raw code outputs
-    ├── verified.jsonl              # + test execution results (correct, n_tests_passed)
-    ├── rewards.jsonl               # CodeScaler-8B scalar scores (r_score)
+    ├── generations.jsonl                            # Raw code outputs
+    ├── verified.jsonl                               # + test execution results (correct, n_tests_passed)
+    ├── rewards.jsonl                                # CodeScaler-8B scalar scores (r_score)
     ├── compare_c_ver_{1,10,20,30}/
+    ├── compare_with_adaptive_c_ver_{1,10,20,30}/
     ├── reward_quality/
     └── difficulty_cost/
 ```
@@ -261,6 +263,23 @@ python coding/reward.py \
 ```
 
 `coding/compare.py`, `coding/reward_quality.py`, and `coding/difficulty_cost.py` work identically to their math counterparts — just pass `--reward-key r_score`.
+
+### `math/compare_with_adaptive.py` / `coding/compare_with_adaptive.py`
+
+Computes the DAP_k (Difficulty-Adaptive Policy) baselines. For each k from 1 to `G-max`, it finds the optimal contiguous partition of problems (sorted by pass rate) into k groups and assigns each group the cheapest fixed `(N_rew, N_ver)` strategy that maximises success. Produces cost-vs-k plots and a cost/success scatter comparing DAP_k against ADAP.
+
+```bash
+python math/compare_with_adaptive.py \
+  --generations results/math/run1/generations.jsonl \
+  --rewards     results/math/run1/rewards.jsonl \
+  --reward-key  r_last \
+  --c-rew 1 --c-ver 10 \
+  --G-max 10 \
+  --out-dir     results/math/run1/compare_with_adaptive_c_ver_10 \
+  --task Math \
+  --model-name "Qwen2.5-Math-7B" \
+  --reward-model-name "Qwen2.5-Math-PRM-7B"
+```
 
 ---
 

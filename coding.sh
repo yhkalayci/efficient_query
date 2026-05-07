@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Coding pipeline: gen → verify (8 CPU workers) → reward → compare (×4) → reward_quality → difficulty_cost
+# Coding pipeline: gen → verify → reward → compare (×4) → compare_with_adaptive (×4) → reward_quality → difficulty_cost
 # Resume: skips any stage whose primary output already exists.
 #
 # Environment variables:
@@ -72,6 +72,26 @@ for C_VER in 1 10 20 30; do
             --c-rew 1 \
             --c-ver "$C_VER" \
             --out-dir "$CDIR" \
+            --task Coding \
+            --model-name "$CODING_MODEL" \
+            --reward-model-name "CodeScaler-8B"
+    fi
+done
+
+# ── Compare with adaptive (DAP_k analysis, 4 c_ver values) ──
+for C_VER in 1 10 20 30; do
+    ADIR="$CODING_OUTDIR/compare_with_adaptive_c_ver_${C_VER}"
+    if [ -d "$ADIR" ]; then
+        echo "[coding] skip compare_with_adaptive c_ver=$C_VER (exists): $ADIR"
+    else
+        echo "[coding] compare_with_adaptive c_ver=$C_VER"
+        python "$SCRIPT_DIR/coding/compare_with_adaptive.py" \
+            --generations "$CODING_OUTDIR/verified.jsonl" \
+            --rewards     "$CODING_OUTDIR/rewards.jsonl" \
+            --reward-key  r_score \
+            --c-rew 1 \
+            --c-ver "$C_VER" \
+            --out-dir "$ADIR" \
             --task Coding \
             --model-name "$CODING_MODEL" \
             --reward-model-name "CodeScaler-8B"

@@ -273,7 +273,7 @@ def main():
     # Reference lines
     n_max = max(M_means.max(), K_means.max()) * 1.5
     ax.plot([1, n_max], [1, n_max], "k--", alpha=0.25, lw=1,
-            label="K = M (verify everything)")
+            label=r"$N_{\mathrm{ver}} = N_{\mathrm{rew}}$ (verify everything)")
     ax.plot([1, n_max], [1, 1], "k:", alpha=0.25, lw=1,
             label="K = 1 (verify only top-1)")
 
@@ -402,7 +402,7 @@ def main():
                 f"cost={C:.0f}", fontsize=11, alpha=0.7, color="black",
             )
 
-    ax.plot([1, n_max], [1, n_max], "k--", alpha=0.25, lw=1, label="K = M")
+    ax.plot([1, n_max], [1, n_max], "k--", alpha=0.25, lw=1, label=r"$N_{\mathrm{ver}} = N_{\mathrm{rew}}$")
 
     ax.set_xscale("log")
     ax.set_yscale("log")

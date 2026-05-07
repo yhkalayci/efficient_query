@@ -409,9 +409,28 @@ def make_plots(
     c_rew,
     c_ver,
     out_dir: Path,
+    task: str = '',
+    model_name: str = '',
+    reward_model_name: str = '',
 ):
     import matplotlib.pyplot as plt
     import textwrap
+    import seaborn as sns
+    sns.set_theme(style="whitegrid", context="paper", palette="deep")
+    plt.rcParams.update({
+        "mathtext.fontset": "cm",
+        "font.family": "serif",
+        "font.serif": ["cmr10"],
+        "axes.formatter.use_mathtext": True,
+        "axes.unicode_minus": False,
+        "axes.labelsize": 20,
+        "axes.titlesize": 20,
+        "xtick.labelsize": 17,
+        "ytick.labelsize": 17,
+        "legend.fontsize": 16,
+        "pdf.fonttype": 42,
+    })
+    COLORS = sns.color_palette("deep").as_hex()
 
     def _wrapped_title(*lines, width=68):
         wrapped = []
@@ -420,6 +439,13 @@ def make_plots(
                 continue
             wrapped.append(textwrap.fill(str(line), width=width, break_long_words=False, break_on_hyphens=False))
         return "\n".join(wrapped)
+
+    def _make_title(base, task, model_name, reward_model_name):
+        if task:
+            base = f"{base} ({task})"
+        gen_sub = f"Generator model: {model_name}" if model_name else ""
+        rew_sub = f"Reward model: {reward_model_name}" if reward_model_name else ""
+        return base, gen_sub, rew_sub
 
     n_trials = len(adaptive_results)
     ad_costs = np.array([r["adaptive_cost"] for r in adaptive_results], dtype=np.float64)
@@ -469,54 +495,54 @@ def make_plots(
     # ------------------------------------------------------------------
     # Plot 1: requested cost-vs-accuracy plot
     # ------------------------------------------------------------------
-    fig, ax = plt.subplots(figsize=(10.8, 6.4))
+    fig, ax = plt.subplots(figsize=(8.6, 6.4))
 
     ax.step(
         cost_grid,
         best_fixed_budget_curve,
         where="post",
         linewidth=2.3,
-        color="tab:blue",
-        label="Best fixed non-adaptive under budget",
+        color=COLORS[0],
+        label="Uniform",
     )
 
     # mark adaptive and oracle averages
     ax.scatter(
         [ad_avg_cost],
         [ad_success_rate],
-        color="red",
+        color=COLORS[3],
         s=220,
         marker="*",
         edgecolors="black",
         linewidths=1.0,
         zorder=6,
-        label=f"Adaptive mean: cost={ad_avg_cost:.1f}, acc={ad_success_rate:.3f}",
+        label=f"ADAP (cost={ad_avg_cost:.1f}, success rate={ad_success_rate:.3f})",
     )
     ax.scatter(
         [oracle_avg_cost],
         [oracle_success_rate],
-        color="tab:orange",
+        color=COLORS[1],
         s=180,
         marker="D",
         edgecolors="black",
         linewidths=0.8,
         zorder=6,
-        label=f"Oracle mean: cost={oracle_avg_cost:.1f}, acc={oracle_success_rate:.3f}",
+        label=f"SAP (cost={oracle_avg_cost:.1f}, success rate={oracle_success_rate:.3f})",
     )
 
     if np.isfinite(match_cost):
         ax.scatter(
             [match_cost],
             [match_succ],
-            color="tab:green",
+            color=COLORS[2],
             s=150,
             marker="o",
             edgecolors="black",
             linewidths=0.8,
             zorder=6,
             label=(
-                f"Best fixed to match adaptive acc: cost={match_cost:.1f}, "
-                f"acc={match_succ:.3f}"
+                f"Uniform matched to ADAP (cost={match_cost:.1f}, "
+                f"success rate={match_succ:.3f})"
             ),
         )
 
@@ -531,61 +557,60 @@ def make_plots(
     idx_or = max(0, min(idx_or, len(cost_grid) - 1))
     bf_curve_at_oracle = float(best_fixed_budget_curve[idx_or])
 
-    ax.axvline(ad_avg_cost, color="red", linestyle=":", alpha=0.35)
-    ax.axvline(oracle_avg_cost, color="tab:orange", linestyle=":", alpha=0.35)
-    ax.axhline(ad_success_rate, color="red", linestyle="--", alpha=0.18)
+    ax.axvline(ad_avg_cost, color=COLORS[3], linestyle=":", alpha=0.35)
+    ax.axvline(oracle_avg_cost, color=COLORS[1], linestyle=":", alpha=0.35)
+    ax.axhline(ad_success_rate, color=COLORS[3], linestyle="--", alpha=0.18)
     if np.isfinite(match_cost):
-        ax.axvline(match_cost, color="tab:green", linestyle=":", alpha=0.45)
+        ax.axvline(match_cost, color=COLORS[2], linestyle=":", alpha=0.45)
 
     ax.set_xscale("log")
-    ax.set_ylim(-0.02, 1.02)
+    ax.set_ylim(-0.02, 1.08)
     ax.set_xlabel("Cost budget")
     ax.set_ylabel("Accuracy / solved fraction")
-    if np.isfinite(match_cost):
-        gap_text = (
-            f"To match adaptive acc={ad_success_rate:.3f}, best fixed needs cost={match_cost:.1f} "
-            f"(gap={match_gap:+.1f}, ratio={match_ratio:.2f}x, (M,K)={match_mk})"
-        )
-    else:
-        gap_text = (
-            f"No fixed non-adaptive strategy reaches adaptive acc={ad_success_rate:.3f}; "
-            f"best achievable fixed acc={match_succ:.3f}"
-        )
-    title1 = "Cost vs accuracy: oracle, adaptive, and best fixed non-adaptive"
-    subtitle1 = _wrapped_title(
-        f"At adaptive avg-cost budget, best fixed is (M,K)={bf_mk_at_ad}, actual cost={bf_cost_at_ad:.1f}, acc={bf_curve_at_ad:.3f}.",
-        gap_text,
-        width=88,
-    )
-    fig.suptitle(title1, fontsize=14, y=0.98)
-    fig.text(0.5, 0.945, subtitle1, ha="center", va="top", fontsize=10.5)
+    title1, gen_sub, rew_sub = _make_title("Cost vs. Accuracy", task, model_name, reward_model_name)
+    n_subs1 = sum(bool(s) for s in [gen_sub, rew_sub])
+    fig.suptitle(title1, fontsize=22, y=0.98)
+    y1 = 0.928
+    if gen_sub:
+        fig.text(0.5, y1, gen_sub, ha='center', va="top", fontsize=15)
+        y1 -= 0.040
+    if rew_sub:
+        fig.text(0.5, y1, rew_sub, ha='center', va="top", fontsize=15)
     ax.grid(True, alpha=0.3)
     if np.isfinite(match_cost):
         ax.text(
             0.02,
             0.98,
-            f"Non-adaptive cost to match adaptive quality:\n{match_cost:.1f} = {match_ratio:.2f}x adaptive\nGap = {match_gap:+.1f}",
+            f"Uniform cost to match ADAP:\n{match_cost:.1f} = {match_ratio:.2f}x ADAP\nGap = {match_gap:+.1f}",
             transform=ax.transAxes,
             va="top",
             ha="left",
-            fontsize=8.8,
+            fontsize=13,
             bbox=dict(boxstyle="round", facecolor="white", alpha=0.82, edgecolor="0.7"),
         )
-    ax.legend(loc="lower right", fontsize=9)
-    fig.tight_layout(rect=[0, 0, 1, 0.83])
-    fig.savefig(out_dir / "plot_requested_cost_vs_accuracy.png", dpi=160)
+    ax.legend(loc="lower right")
+    sns.despine()
+    fig.tight_layout()
+    top1 = 0.84 if n_subs1 == 2 else (0.89 if n_subs1 == 1 else 0.94)
+    fig.subplots_adjust(top=top1)
+    fig.savefig(out_dir / "plot_requested_cost_vs_accuracy.pdf", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
     # ------------------------------------------------------------------
-    # Plot 2: requested sorted-by-oracle-cost plot
+    # Plot 2: per-prompt comparison (one permutation per problem)
     # ------------------------------------------------------------------
-    order = np.argsort(oracle_costs_flat)
-    sorted_oracle_cost = oracle_costs_flat[order]
-    sorted_ad_cost = ad_costs[order]
-    sorted_fixed_success = fixed_at_ad_success[order]
+    perm0_mask = np.array([r["perm_idx"] == 0 for r in adaptive_results])
+    oracle_costs_p0 = oracle_min_cost[:, 0]
+    ad_costs_p0 = ad_costs[perm0_mask]
+    fixed_success_p0 = fixed_at_ad_success[perm0_mask]
+
+    order = np.argsort(oracle_costs_p0)
+    sorted_oracle_cost = oracle_costs_p0[order]
+    sorted_ad_cost = ad_costs_p0[order]
+    sorted_fixed_success = fixed_success_p0[order]
     x = np.arange(len(order))
 
-    fig, ax = plt.subplots(figsize=(12.5, 7.0))
+    fig, ax = plt.subplots(figsize=(10.0, 7.0))
 
     # Color the background by whether the best fixed non-adaptive strategy
     # succeeds on each trial. Merge consecutive trials with the same outcome into
@@ -595,7 +620,7 @@ def make_plots(
         current_val = int(sorted_fixed_success[0])
         for i in range(1, len(sorted_fixed_success) + 1):
             if i == len(sorted_fixed_success) or int(sorted_fixed_success[i]) != current_val:
-                color = '#7fc97f' if current_val == 1 else '#ef8a62'
+                color = COLORS[2] if current_val == 1 else COLORS[3]
                 alpha = 0.22 if current_val == 1 else 0.28
                 ax.axvspan(run_start - 0.5, i - 0.5, color=color, alpha=alpha, linewidth=0, zorder=0)
                 if run_start > 0:
@@ -604,12 +629,12 @@ def make_plots(
                     run_start = i
                     current_val = int(sorted_fixed_success[i])
 
-    ax.plot(x, sorted_oracle_cost, color='tab:orange', linewidth=2.5, label='Oracle min cost', zorder=3)
-    ax.plot(x, sorted_ad_cost, color='tab:blue', linewidth=2.1, alpha=0.98, label='Adaptive cost', zorder=4)
+    ax.plot(x, sorted_oracle_cost, color=COLORS[1], linewidth=2.5, label='SAP min cost', zorder=3)
+    ax.plot(x, sorted_ad_cost, color=COLORS[0], linewidth=2.1, alpha=0.98, label='ADAP cost', zorder=4)
 
     # Highlight trials where adaptive is much more expensive than oracle.
     ratio = sorted_ad_cost / np.maximum(sorted_oracle_cost, 1e-9)
-    high_ratio = ratio >= 2.0
+    high_ratio = ratio >= 8.0
     if np.any(high_ratio):
         ax.scatter(
             x[high_ratio],
@@ -617,39 +642,42 @@ def make_plots(
             s=22,
             color='black',
             alpha=0.55,
-            label='Adaptive / Oracle >= 2x',
+            label=r'ADAP / SAP $\geq 8\times$',
             zorder=5,
         )
 
     from matplotlib.patches import Patch
     bg_handles = [
-        Patch(facecolor='#7fc97f', alpha=0.22, edgecolor='none', label='Best fixed succeeds'),
-        Patch(facecolor='#ef8a62', alpha=0.28, edgecolor='none', label='Best fixed fails'),
+        Patch(facecolor=COLORS[2], alpha=0.22, edgecolor='none', label='Uniform succeeds'),
+        Patch(facecolor=COLORS[3], alpha=0.28, edgecolor='none', label='Uniform fails'),
     ]
 
     ax.set_yscale('log')
-    ax.set_ylabel('Per-trial cost')
-    ax.set_xlabel('Trials sorted by oracle minimum cost')
-    title2 = "Per-trial costs sorted by oracle minimum cost"
-    subtitle2 = _wrapped_title(
-        "Background shading shows whether the best fixed non-adaptive succeeds on each trial.",
-        f"Best fixed under adaptive avg-cost budget: (M,K)={best_mk_at_ad}, actual cost={best_cost_at_ad:.1f}, avg acc={best_succ_at_ad:.3f}.",
-        width=96,
-    )
-    fig.suptitle(title2, fontsize=14, y=0.98)
-    fig.text(0.5, 0.948, subtitle2, ha="center", va="top", fontsize=10.5)
+    ax.set_ylabel('Cost', fontsize=20)
+    ax.set_xlabel('Prompts sorted in increasing order of SAP cost', fontsize=20)
+    title2, gen_sub2, rew_sub2 = _make_title("Per-prompt Comparison", task, model_name, reward_model_name)
+    n_subs2 = sum(bool(s) for s in [gen_sub2, rew_sub2])
+    fig.suptitle(title2, fontsize=24, y=0.98)
+    y2 = 0.928
+    if gen_sub2:
+        fig.text(0.5, y2, gen_sub2, ha='center', va="top", fontsize=15)
+        y2 -= 0.040
+    if rew_sub2:
+        fig.text(0.5, y2, rew_sub2, ha='center', va="top", fontsize=15)
     ax.grid(True, alpha=0.3)
     line_handles, line_labels = ax.get_legend_handles_labels()
     ax.legend(
         handles=bg_handles + line_handles,
         labels=[h.get_label() for h in bg_handles] + line_labels,
         loc='upper left',
-        fontsize=9,
         frameon=True,
     )
 
-    fig.tight_layout(rect=[0, 0, 1, 0.86])
-    fig.savefig(out_dir / 'plot_requested_sorted_by_oracle_cost.png', dpi=160)
+    sns.despine()
+    fig.tight_layout()
+    top2 = 0.84 if n_subs2 == 2 else (0.89 if n_subs2 == 1 else 0.94)
+    fig.subplots_adjust(top=top2)
+    fig.savefig(out_dir / 'plot_requested_sorted_by_oracle_cost.pdf', dpi=160, bbox_inches="tight")
     plt.close(fig)
 
     # ------------------------------------------------------------------
@@ -658,17 +686,20 @@ def make_plots(
     fig, ax = plt.subplots(figsize=(8.2, 5.0))
     ratio_all = ad_costs / np.maximum(oracle_costs_flat, 1e-9)
     bins = np.logspace(np.log10(max(ratio_all.min(), 1e-3)), np.log10(max(ratio_all.max(), 1.0) + 1e-9), 40)
-    ax.hist(ratio_all, bins=bins, alpha=0.75, color="tab:purple")
+    ax.hist(ratio_all, bins=bins, alpha=0.75, color=COLORS[4])
     ax.axvline(float(np.mean(ratio_all)), color="black", linestyle="--", label=f"mean ratio={np.mean(ratio_all):.2f}")
-    ax.axvline(float(np.median(ratio_all)), color="tab:green", linestyle=":", label=f"median ratio={np.median(ratio_all):.2f}")
+    ax.axvline(float(np.median(ratio_all)), color=COLORS[2], linestyle=":", label=f"median ratio={np.median(ratio_all):.2f}")
     ax.set_xscale("log")
-    ax.set_xlabel("Adaptive cost / Oracle min cost")
+    ax.set_xlabel("ADAP cost / SAP cost")
     ax.set_ylabel("Count")
-    ax.set_title("How far adaptive is from oracle on each trial")
+    hist_main, hist_gen, hist_rew = _make_title("ADAP / SAP Cost Ratio", task, model_name, reward_model_name)
+    hist_sub = "  |  ".join(filter(None, [hist_gen, hist_rew]))
+    ax.set_title(f"{hist_main}\n{hist_sub}" if hist_sub else hist_main)
     ax.grid(True, alpha=0.3)
     ax.legend()
+    sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / "plot_adaptive_vs_oracle_ratio_hist.png", dpi=160)
+    fig.savefig(out_dir / "plot_adaptive_vs_oracle_ratio_hist.pdf", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
     # ------------------------------------------------------------------
@@ -702,53 +733,53 @@ def make_plots(
         f"n_trials = {n_trials}",
         "",
         "Average M (samples drawn) and K (samples verified) per strategy:",
-        f"  Adaptive       avg M = {ad_avg_M:.2f}   avg K = {ad_avg_K:.2f}",
-        f"  Sample-aware   avg M = {oracle_avg_M:.2f}   avg K = {oracle_avg_K:.2f}   (oracle: per-trial hindsight-best fixed)",
-        f"  Best fixed under adaptive cost   M = {bf_ad_M}   K = {bf_ad_K}   (same for all trials)",
-        (f"  Best fixed full success          M = {match_M}   K = {match_K}   (same for all trials)"
+        f"  ADAP           avg M = {ad_avg_M:.2f}   avg K = {ad_avg_K:.2f}",
+        f"  SAP            avg M = {oracle_avg_M:.2f}   avg K = {oracle_avg_K:.2f}   (per-trial hindsight-best fixed)",
+        f"  BF under ADAP cost   M = {bf_ad_M}   K = {bf_ad_K}   (same for all trials)",
+        (f"  BF full success      M = {match_M}   K = {match_K}   (same for all trials)"
          if np.isfinite(match_cost) else
-         f"  Best fixed full success          M = n/a   K = n/a   (no fixed strategy reaches adaptive acc={ad_success_rate:.3f})"),
+         f"  BF full success      M = n/a   K = n/a   (no BF strategy reaches ADAP acc={ad_success_rate:.3f})"),
         "",
         "Requested headline quantities:",
-        f"  Oracle average cost                     = {oracle_avg_cost:.6f}",
-        f"  Oracle avg M                            = {oracle_avg_M:.2f}",
-        f"  Oracle avg K                            = {oracle_avg_K:.2f}",
-        f"  Adaptive average cost                   = {ad_avg_cost:.6f}",
-        f"  Adaptive avg M (drawn)                  = {ad_avg_M:.2f}",
-        f"  Adaptive avg K (verified)               = {ad_avg_K:.2f}",
-        f"  Adaptive success rate                   = {ad_success_rate:.6f}",
-        f"  Cheapest fixed cost matching adaptive   = {match_cost:.6f}" if np.isfinite(match_cost) else "  Cheapest fixed cost matching adaptive   = inf",
-        f"  Matching fixed strategy (M,K)           = {match_mk}",
-        f"  Cost gap (fixed - adaptive)             = {match_gap:.6f}" if np.isfinite(match_gap) else "  Cost gap (fixed - adaptive)             = inf",
-        f"  Cost ratio (fixed / adaptive)           = {match_ratio:.6f}" if np.isfinite(match_ratio) else "  Cost ratio (fixed / adaptive)           = inf",
+        f"  SAP average cost                        = {oracle_avg_cost:.6f}",
+        f"  SAP avg M                               = {oracle_avg_M:.2f}",
+        f"  SAP avg K                               = {oracle_avg_K:.2f}",
+        f"  ADAP average cost                       = {ad_avg_cost:.6f}",
+        f"  ADAP avg M (drawn)                      = {ad_avg_M:.2f}",
+        f"  ADAP avg K (verified)                   = {ad_avg_K:.2f}",
+        f"  ADAP success rate                       = {ad_success_rate:.6f}",
+        f"  Cheapest BF cost matching ADAP          = {match_cost:.6f}" if np.isfinite(match_cost) else "  Cheapest BF cost matching ADAP          = inf",
+        f"  Matching BF strategy (M,K)              = {match_mk}",
+        f"  Cost gap (BF - ADAP)                    = {match_gap:.6f}" if np.isfinite(match_gap) else "  Cost gap (BF - ADAP)                    = inf",
+        f"  Cost ratio (BF / ADAP)                  = {match_ratio:.6f}" if np.isfinite(match_ratio) else "  Cost ratio (BF / ADAP)                  = inf",
         "",
-        "Best fixed non-adaptive under various budget regimes:",
-        f"  Curve file                              = plot_requested_cost_vs_accuracy.png",
-        f"  At budget = Adaptive average cost:",
+        "BF under various budget regimes:",
+        "  Curve file                              = plot_requested_cost_vs_accuracy.pdf",
+        "  At budget = ADAP average cost:",
         f"    chosen (M,K)                          = {best_mk_at_ad}",
         f"    M                                     = {bf_ad_M}",
         f"    K                                     = {bf_ad_K}",
         f"    actual chosen cost                    = {best_cost_at_ad:.6f}",
         f"    average success                       = {best_succ_at_ad:.6f}",
-        f"  Cheapest fixed to match adaptive success:",
+        "  Cheapest BF to match ADAP success:",
         f"    (M,K)                                 = {match_mk}",
         f"    M                                     = {match_M}",
         f"    K                                     = {match_K}",
         "",
-        "Paired comparison on the SAME trials using that one fixed strategy:",
-        f"  adaptive succeeds, fixed fails         = {adaptive_beats_fixed}",
-        f"  fixed succeeds, adaptive fails         = {fixed_beats_adaptive}",
+        "Paired comparison on the SAME trials using that one BF strategy:",
+        f"  ADAP succeeds, BF fails                = {adaptive_beats_fixed}",
+        f"  BF succeeds, ADAP fails                = {fixed_beats_adaptive}",
         f"  both succeed                            = {both_succeed}",
         f"  both fail                               = {both_fail}",
         "",
-        "Cost comparison against oracle:",
-        f"  mean(adaptive / oracle)                 = {float(np.mean(ad_costs / np.maximum(oracle_costs_flat, 1e-9))):.6f}",
-        f"  median(adaptive / oracle)               = {float(np.median(ad_costs / np.maximum(oracle_costs_flat, 1e-9))):.6f}",
+        "Cost comparison against SAP:",
+        f"  mean(ADAP / SAP)                        = {float(np.mean(ad_costs / np.maximum(oracle_costs_flat, 1e-9))):.6f}",
+        f"  median(ADAP / SAP)                      = {float(np.median(ad_costs / np.maximum(oracle_costs_flat, 1e-9))):.6f}",
         "",
         "Requested sorted-instance plot:",
-        f"  File                                    = plot_requested_sorted_by_oracle_cost.png",
-        "  Trials are sorted by oracle minimum cost; top panel overlays oracle/adaptive cost,",
-        "  bottom panel marks whether the single best fixed strategy (chosen at adaptive avg-cost budget) succeeds.",
+        "  File                                    = plot_requested_sorted_by_oracle_cost.pdf",
+        "  Trials are sorted by SAP minimum cost; top panel overlays SAP/ADAP cost,",
+        "  bottom panel marks whether the single BF strategy (chosen at ADAP avg-cost budget) succeeds.",
     ]
     summary_text = "\n".join(summary_lines)
     print("\n" + summary_text)
@@ -768,6 +799,9 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--cost-grid-points", type=int, default=100, help="Number of points on the cost grid")
+    ap.add_argument('--task',              default='', help='Task label for plot titles (e.g. Math, Coding)')
+    ap.add_argument('--model-name',        default='', help='Generation model name for plot titles')
+    ap.add_argument('--reward-model-name', default='', help='Reward model name for plot titles')
     args = ap.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -841,6 +875,9 @@ def main():
         c_rew=args.c_rew,
         c_ver=args.c_ver,
         out_dir=out_dir,
+        task=args.task,
+        model_name=args.model_name,
+        reward_model_name=args.reward_model_name,
     )
 
     # Re-save enriched adaptive_results with oracle/fixed annotations

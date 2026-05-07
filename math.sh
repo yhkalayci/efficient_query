@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Math pipeline: generate → reward → compare (×4 c_ver) → reward_quality → difficulty_cost
+# Math pipeline: generate → reward → compare (×4 c_ver) → compare_with_adaptive (×4 c_ver) → reward_quality → difficulty_cost
 # Runs all three models independently; each gets its own output subdirectory.
 # Resume: skips any stage whose primary output already exists.
 #
@@ -62,7 +62,30 @@ for MODEL in $MATH_MODELS; do
                 --reward-key  r_last \
                 --c-rew 1 \
                 --c-ver "$C_VER" \
-                --out-dir "$CDIR"
+                --out-dir "$CDIR" \
+                --task Math \
+                --model-name "$MODEL" \
+                --reward-model-name "Qwen2.5-Math-PRM-7B"
+        fi
+    done
+
+    # ── Compare with adaptive (DAP_k analysis, 4 c_ver values) ──
+    for C_VER in 1 10 20 30; do
+        ADIR="$DIR/compare_with_adaptive_c_ver_${C_VER}"
+        if [ -d "$ADIR" ]; then
+            echo "[math] skip compare_with_adaptive c_ver=$C_VER (exists): $ADIR"
+        else
+            echo "[math] compare_with_adaptive c_ver=$C_VER: $DIR"
+            python "$SCRIPT_DIR/math/compare_with_adaptive.py" \
+                --generations "$DIR/generations.jsonl" \
+                --rewards     "$DIR/rewards.jsonl" \
+                --reward-key  r_last \
+                --c-rew 1 \
+                --c-ver "$C_VER" \
+                --out-dir "$ADIR" \
+                --task Math \
+                --model-name "$MODEL" \
+                --reward-model-name "Qwen2.5-Math-PRM-7B"
         fi
     done
 

@@ -186,8 +186,39 @@ def make_plots(
     c_rew: float,
     c_ver: float,
     out_dir: Path,
+    task: str = '',
+    model_name: str = '',
+    reward_model_name: str = '',
 ):
     import matplotlib.pyplot as plt
+    import seaborn as sns
+    sns.set_theme(style="whitegrid", context="paper", palette="deep")
+    plt.rcParams.update({
+        "mathtext.fontset": "cm",
+        "font.family": "serif",
+        "font.serif": ["cmr10"],
+        "axes.formatter.use_mathtext": True,
+        "axes.unicode_minus": False,
+        "axes.labelsize": 20,
+        "axes.titlesize": 20,
+        "xtick.labelsize": 17,
+        "ytick.labelsize": 17,
+        "legend.fontsize": 16,
+        "pdf.fonttype": 42,
+    })
+    COLORS = sns.color_palette("deep").as_hex()
+
+    def _make_title(base, task, model_name, reward_model_name):
+        if task:
+            base = f"{base} -- {task}"
+        sub = ""
+        if model_name and reward_model_name:
+            sub = f"Generator model: {model_name}  |  Reward model: {reward_model_name}"
+        elif model_name:
+            sub = f"Generator model: {model_name}"
+        elif reward_model_name:
+            sub = f"Reward model: {reward_model_name}"
+        return base, sub
 
     G_max  = len(grouped_results)
     G_vals = list(range(1, G_max + 1))
@@ -198,50 +229,52 @@ def make_plots(
     # ---- Plot 1: absolute cost vs G ----
     fig, ax = plt.subplots(figsize=(9, 5))
 
-    ax.plot(G_vals, g_cost, color='tab:blue', label='G-group optimal cost', **marker_kw)
-    ax.axhline(ad_avg_cost,     color='red',        linestyle='--', linewidth=2.0,
-               label=f'Adaptive cost = {ad_avg_cost:.2f}')
-    ax.axhline(oracle_avg_cost, color='tab:orange', linestyle=':',  linewidth=1.8,
-               label=f'Oracle cost = {oracle_avg_cost:.2f}')
+    ax.plot(G_vals, g_cost, color=COLORS[0], label=r'DAP$_k$', **marker_kw)
+    ax.axhline(ad_avg_cost,     color=COLORS[3],    linestyle='--', linewidth=2.0,
+               label=f'ADAP (cost={ad_avg_cost:.2f})')
+    ax.axhline(oracle_avg_cost, color=COLORS[1],    linestyle=':',  linewidth=1.8,
+               label=f'SAP (cost={oracle_avg_cost:.2f})')
 
-    ax.set_xlabel('Number of groups G')
+    ax.set_xlabel(r'Number of difficulty classes $k$')
     ax.set_ylabel('Average cost per trial')
     ax.set_yscale('log')
     ax.set_xticks(G_vals)
-    ax.set_title(f'G-group fixed strategy cost vs. adaptive  (c_rew={c_rew}, c_ver={c_ver})',
-                 fontsize=12)
-    ax.legend(fontsize=9)
+    title1, sub1 = _make_title(r'DAP$_k$ Cost vs. ADAP', task, model_name, reward_model_name)
+    ax.set_title(f"{title1}\n{sub1}" if sub1 else title1)
+    ax.legend()
     ax.grid(True, alpha=0.3)
+    sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / 'plot_grouped_g_cost.png', dpi=160)
+    fig.savefig(out_dir / 'plot_grouped_g_cost.pdf', dpi=160, bbox_inches="tight")
     plt.close(fig)
 
     # ---- Plot 2: cost ratio relative to adaptive ----
     g_ratio     = [c / ad_avg_cost for c in g_cost]
     oracle_ratio = oracle_avg_cost / ad_avg_cost
 
-    fig, ax = plt.subplots(figsize=(9, 5))
+    fig, ax = plt.subplots(figsize=(9.5, 7.5))
 
-    ax.plot(G_vals, g_ratio, color='tab:blue', label='G-group cost / adaptive cost', **marker_kw)
-    ax.axhline(1.0,          color='red',        linestyle='--', linewidth=2.0,
-               label=f'Adaptive (1.00×)')
-    ax.axhline(oracle_ratio, color='tab:orange', linestyle=':',  linewidth=1.8,
-               label=f'Oracle ({oracle_ratio:.2f}×)')
+    ax.plot(G_vals, g_ratio, color=COLORS[0], label=r'DAP$_k$ / ADAP', **marker_kw)
+    ax.axhline(1.0,          color=COLORS[3],    linestyle='--', linewidth=2.0,
+               label='ADAP (1.00x)')
+    ax.axhline(oracle_ratio, color=COLORS[1],    linestyle=':',  linewidth=1.8,
+               label=f'SAP ({oracle_ratio:.2f}x)')
 
     # annotate each G point with its ratio
     for g, ratio in zip(G_vals, g_ratio):
-        ax.annotate(f'{ratio:.2f}×', xy=(g, ratio), xytext=(0, 6),
-                    textcoords='offset points', ha='center', fontsize=8)
+        ax.annotate(f'{ratio:.2f}x', xy=(g, ratio), xytext=(0, 6),
+                    textcoords='offset points', ha='center', fontsize=14)
 
-    ax.set_xlabel('Number of groups G')
-    ax.set_ylabel('Cost / adaptive cost')
+    ax.set_xlabel(r'Number of difficulty classes $k$')
+    ax.set_ylabel(r'Cost / ADAP cost')
     ax.set_xticks(G_vals)
-    ax.set_title(f'Cost savings of adaptive over G-group fixed  (c_rew={c_rew}, c_ver={c_ver})',
-                 fontsize=12)
-    ax.legend(fontsize=9)
+    title2, sub2 = _make_title(r'Cost Savings: ADAP over DAP$_k$', task, model_name, reward_model_name)
+    ax.set_title(f"{title2}\n{sub2}" if sub2 else title2)
+    ax.legend()
     ax.grid(True, alpha=0.3)
+    sns.despine()
     fig.tight_layout()
-    fig.savefig(out_dir / 'plot_grouped_cost_ratio.png', dpi=160)
+    fig.savefig(out_dir / 'plot_grouped_cost_ratio.pdf', dpi=160, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -261,6 +294,9 @@ def main():
     ap.add_argument('--out-dir', required=True)
     ap.add_argument('--G-max',  type=int,   default=10)
     ap.add_argument('--cost-grid-points', type=int, default=100)
+    ap.add_argument('--task',              default='', help='Task label for plot titles (e.g. Math, Coding)')
+    ap.add_argument('--model-name',        default='', help='Generation model name for plot titles')
+    ap.add_argument('--reward-model-name', default='', help='Reward model name for plot titles')
     args = ap.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -356,6 +392,9 @@ def main():
         grouped_results, ad_avg_cost, ad_success_rate, oracle_avg_cost,
         pass_rates, sorted_indices, interval_mk,
         args.c_rew, args.c_ver, out_dir,
+        task=args.task,
+        model_name=args.model_name,
+        reward_model_name=args.reward_model_name,
     )
     print(f'\n[done] outputs in {out_dir}')
 

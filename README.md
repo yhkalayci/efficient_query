@@ -1,6 +1,10 @@
 # Adaptive Generate-Rank-Verify: Inference-Time Search with Costly Verification
 
+Code for the experiments in [*Adaptive Generate-Rank-Verify: Inference-Time Search with Costly Verification*](https://arxiv.org/abs/2605.17609) by Shaddin Dughmi*, Mahdi Haghifam*, Yusuf Hakan Kalayci*.
+
 Evaluates how well **reward-guided generation** reduces the compute needed to solve math competition and coding problems. The core question: given a fixed budget, is it cheaper to generate many samples and verify one, or to generate fewer and use a reward model to pick which one to verify?
+
+
 
 ---
 
